@@ -28,9 +28,11 @@ public class App : Application
         var serviceCollection = new ServiceCollection();
         ConfigureServices(serviceCollection);
         var serviceProvider = serviceCollection.BuildServiceProvider();
+        var settingsService = serviceProvider.GetRequiredService<SettingsService>();
+        settingsService.Load();
         Localization.Resources.Culture =
             new CultureInfo(
-                serviceProvider.GetRequiredService<SettingsService>().Settings.Language == 0 ? "zh-CN" : "en-US");
+                settingsService.Settings.Display.Language == 0 ? "zh-CN" : "en-US");
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             // Avoid duplicate validations from both Avalonia and the CommunityToolkit. 
@@ -44,7 +46,7 @@ public class App : Application
             desktop.Exit += (_, _) =>
             {
                 Log.Information("Application is exiting. Saving settings and stopping SRA process.");
-                serviceProvider.GetRequiredService<SettingsService>().SaveSettings();
+                // settingsService.Save(); 设置有自动保存
                 serviceProvider.GetRequiredService<ConfigService>().SaveConfig();
                 serviceProvider.GetRequiredService<CacheService>().SaveCache();
                 serviceProvider.GetRequiredService<IBackendService>().StopBackend();
@@ -90,6 +92,7 @@ public class App : Application
         services.AddTransient<ScriptConfigWindowViewModel>();
         services.AddSingleton<ReportService>();
         services.AddSingleton<OverlayService>();
+        services.AddSingleton<PythonService>();
         services.AddHttpClient("GlobalClient", client =>
         {
             client.Timeout = TimeSpan.FromSeconds(60);
@@ -105,9 +108,6 @@ public class App : Application
 
     private static void InitializeSerilog()
     {
-        // 日志文件路径（存到 ApplicationData/SRA/logs 目录）
-        Directory.CreateDirectory(PathString.FrontendLogsDir); // 确保目录存在
-
         // 配置 Serilog
         Log.Logger = new LoggerConfiguration()
             // 输出到控制台（开发环境调试用）
@@ -132,7 +132,7 @@ public class App : Application
         };
     }
     
-    
+
     private void DisableAvaloniaDataAnnotationValidation()
     {
         // Get an array of plugins to remove
