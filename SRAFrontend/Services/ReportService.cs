@@ -20,7 +20,7 @@ public class ReportService(
     private string GetDeviceId()
     {
         if (!string.IsNullOrEmpty(_deviceIdCache)) return _deviceIdCache;
-        var deviceIdFilePath = Path.Combine(PathString.AppDataDir, "profile.txt");
+        var deviceIdFilePath = Path.Combine(PathString.AppDataSraDir, "profile.txt");
         if (File.Exists(deviceIdFilePath))
         {
             _deviceIdCache = File.ReadAllText(deviceIdFilePath).Trim();
@@ -42,7 +42,7 @@ public class ReportService(
             EventType = eventType,
             EventData = eventData,
             AppId = "SRA",
-            AppVersion = AppSettings.Version,
+            AppVersion = Settings.Version,
             Timestamp = timestampNow,
             SessionDuration = timestampNow - cacheService.Cache.LastLaunchTimestamp
         };

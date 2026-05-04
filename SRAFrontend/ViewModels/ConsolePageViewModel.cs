@@ -32,7 +32,7 @@ public partial class ConsolePageViewModel : PageViewModel
 
     private string Arguments => Environment.GetCommandLineArgs().Length > 1
         ? string.Join(' ', Environment.GetCommandLineArgs()[1..].Select(arg => arg.Contains(' ') ? $"\"{arg}\"" : arg))
-        : _settingsService.Settings.Advanced.BackendLaunchArgs;
+        : _settingsService.Settings.BackendArguments;
 
     public string ConsoleLines
     {
@@ -99,7 +99,7 @@ public partial class ConsolePageViewModel : PageViewModel
     private void RestartConsole()
     {
         _consoleLines.Clear();
-        _backendService.RestartBackendAsync(_settingsService.Settings.Advanced.BackendLaunchArgs);
+        _backendService.RestartBackendAsync(_settingsService.Settings.BackendArguments);
     }
 
     [RelayCommand]

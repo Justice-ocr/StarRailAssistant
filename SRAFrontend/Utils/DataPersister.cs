@@ -13,6 +13,16 @@ public static class DataPersister
     {
         WriteIndented = true
     };
+    static DataPersister()
+    {
+        EnsurePath();
+    }
+
+    private static void EnsurePath()
+    {
+        if (!Directory.Exists(PathString.AppDataSraDir)) Directory.CreateDirectory(PathString.AppDataSraDir);
+        if (!Directory.Exists(PathString.ConfigsDir)) Directory.CreateDirectory(PathString.ConfigsDir);
+    }
 
     /// <summary>
     ///     原子写入文件：先写临时文件，再替换目标文件。
@@ -40,6 +50,33 @@ public static class DataPersister
             throw;
         }
     }
+
+    #region Settings
+
+    public static Settings LoadSettings()
+    {
+        try
+        {
+            if (!File.Exists(PathString.SettingsJson)) return new Settings();
+            var json = File.ReadAllText(PathString.SettingsJson);
+            if (string.IsNullOrWhiteSpace(json)) return new Settings();
+            return JsonSerializer.Deserialize<Settings>(json) ?? new Settings();
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, "Error loading settings, using default settings");
+            return new Settings();
+        }
+        
+    }
+
+    public static void SaveSettings(Settings settings)
+    {
+        var json = JsonSerializer.Serialize(settings, JsonSerializerOptions);
+        SafeWriteAllText(PathString.SettingsJson, json);
+    }
+
+    #endregion
 
     #region Cache
 
