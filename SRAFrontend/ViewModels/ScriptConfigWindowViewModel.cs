@@ -24,10 +24,11 @@ public partial class ScriptParamValueViewModel : ObservableObject
     public string DefaultValue => Def.Default ?? "";
     public List<string> Options => Def.Options ?? [];
 
-    public bool IsText => Def.Type is "string" or "int" or "number" or null or "";
-    public bool IsFolder => Def.Type == "folder";
-    public bool IsBool => Def.Type == "bool";
-    public bool IsSelect => Def.Type == "select";
+    // 构造时确定，不会变化，用普通字段直接初始化避免绑定时序问题
+    public bool IsText { get; }
+    public bool IsFolder { get; }
+    public bool IsBool { get; }
+    public bool IsSelect { get; }
 
     [ObservableProperty] private string _value = "";
     [ObservableProperty] private bool _boolValue;
@@ -35,6 +36,10 @@ public partial class ScriptParamValueViewModel : ObservableObject
     public ScriptParamValueViewModel(ScriptParamDef def, string currentValue)
     {
         Def = def;
+        IsText   = def.Type is "string" or "int" or "number" or "folder" or null or "";
+        IsFolder = def.Type == "folder";
+        IsBool   = def.Type == "bool";
+        IsSelect = def.Type == "select";
         BrowseFolderCommand = new RelayCommand(async () =>
         {
             var topLevel = Avalonia.Application.Current?.ApplicationLifetime is
@@ -149,7 +154,7 @@ public partial class ScriptConfigWindowViewModel : ObservableObject
         if (!File.Exists(path)) return new();
         try
         {
-            var root = JsonNode.Parse(File.ReadAllText(path)) as JsonObject;
+            var root = JsonNode.Parse(File.ReadAllText(path, System.Text.Encoding.UTF8)) as JsonObject;
             if (root == null) return new();
             var result = new Dictionary<string, string>();
             foreach (var kv in root)
@@ -166,7 +171,7 @@ public partial class ScriptConfigWindowViewModel : ObservableObject
         JsonObject root;
         if (File.Exists(path))
         {
-            try { root = JsonNode.Parse(File.ReadAllText(path)) as JsonObject ?? new JsonObject(); }
+            try { root = JsonNode.Parse(File.ReadAllText(path, System.Text.Encoding.UTF8)) as JsonObject ?? new JsonObject(); }
             catch { root = new JsonObject(); }
         }
         else

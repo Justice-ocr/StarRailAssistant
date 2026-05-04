@@ -43,7 +43,7 @@ public class ScriptService
         if (!File.Exists(ReposConfigPath)) return [];
         try
         {
-            var json = File.ReadAllText(ReposConfigPath);
+            var json = File.ReadAllText(ReposConfigPath, System.Text.Encoding.UTF8);
             var root = JsonSerializer.Deserialize<ReposConfig>(json, JsonOpts);
             return root?.Repos ?? [];
         }
@@ -148,7 +148,7 @@ public class ScriptService
             if (!File.Exists(manifestPath)) continue;
             try
             {
-                var json = File.ReadAllText(manifestPath);
+                var json = File.ReadAllText(manifestPath, System.Text.Encoding.UTF8);
                 var m = JsonSerializer.Deserialize<ManifestJson>(json, JsonOpts);
                 if (m == null) continue;
                 var manifest = new ScriptManifest
@@ -172,7 +172,7 @@ public class ScriptService
                 {
                     try
                     {
-                        var settingsJson = File.ReadAllText(settingsPath);
+                        var settingsJson = File.ReadAllText(settingsPath, System.Text.Encoding.UTF8);
                         var defs = System.Text.Json.JsonSerializer.Deserialize<List<ScriptParamDef>>(
                             settingsJson, JsonOpts);
                         if (defs != null) manifest.LoadedParams.AddRange(defs);
@@ -196,7 +196,7 @@ public class ScriptService
         if (!File.Exists(path)) return [];
         try
         {
-            var json = File.ReadAllText(path);
+            var json = File.ReadAllText(path, System.Text.Encoding.UTF8);
             return JsonSerializer.Deserialize<List<ScriptParamDef>>(json, JsonOpts) ?? [];
         }
         catch { return []; }
@@ -206,7 +206,7 @@ public class ScriptService
     public string? ReadLocalReadme(string scriptId)
     {
         var path = Path.Combine(ScriptsDir, scriptId, "README.md");
-        return File.Exists(path) ? File.ReadAllText(path) : null;
+        return File.Exists(path) ? File.ReadAllText(path, System.Text.Encoding.UTF8) : null;
     }
 
     /// <summary>从仓库远程拉取 README（通过 repo_path 构造 raw URL）</summary>
