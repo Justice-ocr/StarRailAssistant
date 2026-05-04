@@ -1,25 +1,27 @@
 # type: ignore
 import cmd
+import pprint
 import threading
 from collections.abc import Callable
 from typing import Any
-
 from loguru import logger
 
 from SRACore.localization import Resource
+from SRACore.models.app_settings import AppSettings
 from SRACore.runtime.event_listener import KeyboardListener
 from SRACore.thread.task_process import TaskManager
 from SRACore.runtime.trigger_manager import TriggerManager
 from SRACore.util.const import VERSION, CORE
+from SRACore.util.data_persister import load_config
 
 
 class SRACli(cmd.Cmd):
     intro = Resource.cli_intro(version=VERSION, core=CORE)
     prompt = "sra> "
 
-    def __init__(self, settings: dict = None):
+    def __init__(self, settings: AppSettings):
         super().__init__()
-        settings = settings or {}
+        self.settings = settings or {}
         self.task_manager = TaskManager()
         self.task_thread = None
         self.trigger_manager = TriggerManager()
@@ -27,8 +29,7 @@ class SRACli(cmd.Cmd):
         self.trigger_thread.start()
         if not self.is_admin():
             logger.warning(Resource.cli_noAdminWarning)
-        stop_hotkey: str = settings.get('StartStopHotkey', 'f9')
-        stop_hotkey = stop_hotkey.lower()  # 统一小写
+        stop_hotkey: str = settings.General.hotkeyStop.lower()
         if stop_hotkey == '':
             stop_hotkey = 'f9'
 
@@ -41,6 +42,12 @@ class SRACli(cmd.Cmd):
 
     def emptyline(self) -> bool:
         return False
+
+    def do_config(self, name):
+        if name == 'settings':
+            pprint.pprint(self.settings)
+        else:
+            pprint.pprint(load_config(name))
 
     def _get_command_help(self, cmd_name: str, detail: bool = False) -> str:
         """
@@ -295,15 +302,15 @@ class SRACli(cmd.Cmd):
                 send_discord_notification,
                 send_xxtui_notification,
             )
-            settings = load_settings()
+            settings = load_settings("notifications")
             data = _build_notification_data("notify.test", "这是一条测试通知", "success")
 
             # 支持图片的渠道：若开关开启则用 SRA 图标替代截图
             _send_image_keys = {
-                "telegram": "TelegramSendImage",
-                "onebot":   "OneBotSendImage",
-                "wecom":    "WeComSendImage",
-                "discord":  "DiscordSendImage",
+                "telegram": "telegram.sendImage",
+                "onebot":   "onebot.sendImage",
+                "wecom":    "wecom.sendImage",
+                "discord":  "discord.sendImage",
             }
             _orig_bytes  = _notify_mod._take_screenshot_bytes
             _orig_base64 = _notify_mod._take_screenshot_base64

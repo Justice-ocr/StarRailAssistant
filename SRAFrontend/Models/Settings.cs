@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using Avalonia.Collections;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -36,6 +36,7 @@ public partial class Settings : ObservableObject
     [ObservableProperty] private string _smtpServer = "smtp.qq.com"; // SMTP服务器地址
 
     [ObservableProperty] private bool _isAutoDetectGamePath = true; // 是否自动检测游戏安装路径
+    [ObservableProperty] private bool _isCloudGameEnable; // 是否启用云游戏
 
     [ObservableProperty] private int _gamePathIndex; // 游戏安装路径
     public AvaloniaList<string> GamePaths { get; set; } = []; // 可能的游戏安装路径列表
@@ -60,7 +61,7 @@ public partial class Settings : ObservableObject
 
     [JsonPropertyName("MirrorChyanCdk")] public string EncryptedMirrorChyanCdk { get; set; } = "";
     [JsonPropertyName("EmailAuthCode")] public string EncryptedEmailAuthCode { get; set; } = "";
-    public const string Version = "2.11.0-beta.2"; // 应用版本号
+    public const string Version = "2.13.0"; // 应用版本号
 
     // 快捷键设置
     public string ActivityHotkey { get; set; } = "F1"; // 活动 默认 F1

@@ -270,8 +270,9 @@ class TrailblazePowerTask(BaseTask):
                 self.operator.sleep(0.2)
                 self.operator.click_img(TPIMG.PLUS)
             self.operator.sleep(1)
-        if self.config["TrailblazePowerUseAssistant"]:
-            self.support()
+        # if self.config["TrailblazePowerUseAssistant"]:
+        #     self.support()
+        # 支援逻辑又不通用了
         if self.operator.click_img(TPIMG.BATTLE_STAR, after_sleep=1):
             if self.operator.locate(TPIMG.LIMIT):
                 logger.warning(SRAError(ErrorCode.RELICS_LIMIT, "背包内遗器数量超过限制，请先清理"))
@@ -286,13 +287,16 @@ class TrailblazePowerTask(BaseTask):
                     logger.info("体力不足")
                     self.operator.press_key("esc", interval=1, presses=3)
                     return False
+            box = self.operator.locate(IMG.ENSURE2)
+            if box:
+                self.operator.click_box(box)
             if not self.operator.wait_img(IMG.F3, timeout=240):
                 pass
             self.operator.hold_key("w", 2.5)
             for i in range(1, 5):
                 self.operator.press_key(str(i))
                 self.operator.sleep(0.5)
-                self.operator.press_key(self.settings.get('TechniqueHotkey', 'e').lower())
+                self.operator.press_key(self.settings.General.hotkeyE.lower())
                 self.operator.sleep(2)
             self.operator.click_point(0.5, 0.5)
             self.battle_star(run_time)
@@ -669,7 +673,7 @@ class TrailblazePowerTask(BaseTask):
             return self.operator.wait_img(IMG.SURVIVAL_INDEX_ONCLICK, timeout=10) is not None
         elif index == 0:
             # 主页面，按快捷键进入生存索引页面
-            self.operator.press_key(self.settings.get('GuideHotkey', 'f4').lower())
+            self.operator.press_key(self.settings.General.hotkeyF4.lower())
             self.operator.sleep(1.5)
             return self.goto_survival_index()  # 递归调用，直到进入生存索引页面
         else:

@@ -29,9 +29,6 @@
     <data name="ResourceIntegrityCheckText" xml:space="preserve">
         <value>资源完整性检查</value>
     </data>
-    <data name="ScriptStoreText" xml:space="preserve">
-        <value>脚本仓库</value>
-    </data>
     <data name="ExtensionText" xml:space="preserve">
         <value>拓展</value>
     </data>
@@ -286,5 +283,8 @@
     </data>
     <data name="MainPyText" xml:space="preserve">
         <value>主程序路径</value>
+    </data>
+    <data name="CloudGameText" xml:space="preserve">
+        <value>使用云·星穹铁道</value>
     </data>
 </root>

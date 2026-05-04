@@ -3,7 +3,8 @@ import json
 from typing import Any
 
 from SRACore.localization import Resource
-from SRACore.util.const import AppDataSraDir, ConfigsDir
+from SRACore.models.app_settings import AppSettings
+from SRACore.util.const import AppDataDir, ConfigsDir
 from SRACore.util.logger import logger
 
 
@@ -31,9 +32,9 @@ def load_data(typ: str) -> dict[Any, Any]:
     path = ''
     match typ:
         case 'settings':
-            path = AppDataSraDir / 'settings.json'
+            path = AppDataDir / 'settings.json'
         case 'cache':
-            path = AppDataSraDir / 'cache.json'
+            path = AppDataDir / 'cache.json'
         case _:
             return {}
 
@@ -51,8 +52,17 @@ def load_data(typ: str) -> dict[Any, Any]:
         return {}
 
 
-def load_settings():
-    return load_data('settings')
+def load_settings(group: str | None = None) -> dict[str, Any]:
+    data = load_data("settings")
+    if group:
+        return data.get(group, {})
+    else:
+        return data
+
+
+def load_app_settings() -> AppSettings:
+    data = load_settings()
+    return AppSettings.from_dict(data)
 
 
 def load_cache():

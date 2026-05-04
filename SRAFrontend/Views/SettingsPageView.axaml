@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -75,6 +75,11 @@
                                     <Expander Header="游戏启动参数" IsExpanded="True">
                                         <StackPanel>
                                             <!-- 启用开关 -->
+                                            <Grid ColumnDefinitions="Auto, *, Auto">
+                                                <Label Classes="Icon">&#xE1AA;</Label>
+                                                <Label Grid.Column="1" Content="{x:Static lang:Resources.CloudGameText}" />
+                                                <ToggleSwitch Grid.Column="2" IsChecked="{Binding Settings.IsCloudGameEnable}"/>
+                                            </Grid>
                                             <Grid ColumnDefinitions="Auto, *, Auto">
                                                 <Label Classes="Icon">&#xE47E;</Label>
                                                 <Label Grid.Column="1" Content="启用启动参数" />

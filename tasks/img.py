@@ -61,6 +61,7 @@ class SGIMG:
     USERNAME_INPUT = f"{BASE}/%s/username_input.png"
     WELCOME = f"{BASE}/%s/welcome.png"
     NEW_VERSION = f"{BASE}/new_version.png"
+    SETTINGS = f"{BASE}/settings.png"
 # endregion
 
 # region 体力任务专用
@@ -161,6 +162,7 @@ class CWIMG:
     INVEST_ENVIRONMENT = f"{BASE}/invest_environment.png"
     INVEST_ENV_REFRESH = f"{BASE}/invest_env_refresh.png"
     INVEST_STRATEGY_REFRESH = f"{BASE}/invest_strategy_refresh.png"
+    INSTRUCTIONS = f"{BASE}/instructions.png"
     LOGO = f"{BASE}/logo.png"
     NEXT_PAGE = f"{BASE}/next_page.png"
     NEXT_STEP = f"{BASE}/next_step.png"
@@ -172,9 +174,11 @@ class CWIMG:
     RIGHT = f"{BASE}/right.png"
     SELECT_INVEST_STRATEGY = f"{BASE}/select_invest_strategy.png"
     SETTLE = f"{BASE}/settle.png"
+    STAR = f"{BASE}/star.png"
     START_GAME = f"{BASE}/start_game.png"
     STRATEGY = f"{BASE}/strategy.png"
     SYNTHESIS = f"{BASE}/synthesis.png"
+    SILVER_WOLF_LV999 = f"{BASE}/silver_wolf_lv999.png"
     THE_PLANET_OF_FESTIVITIES = f"{BASE}/ThePlanetOfFestivities.png"
     WITHDRAW_AND_SETTLE = f"{BASE}/withdraw_and_settle.png"
 # endregion
@@ -191,7 +195,8 @@ class DUIMG:
     COLLECTION = f"{BASE}/collection.png"
     CURIOSITY_SELECT = f"{BASE}/curiosity_select.png"
     DIFFERENTIAL_UNIVERSE_START = f"{BASE}/differential_universe_start.png"
-    DIVERGENT_UNIVERSE_QUIT = f"{BASE}/differential_universe_quit.png"
+    DIFFERENTIAL_UNIVERSE_QUIT = f"{BASE}/differential_universe_quit.png"
+    DIFFERENTIAL_UNIVERSE = f"{BASE}/differential_universe.png"
     END_AND_SETTLE = f"{BASE}/end_and_settle.png"
     EQUATION_EXPANSION = f"{BASE}/equation_expansion.png"
     EQUATION_SELECT = f"{BASE}/equation_select.png"
@@ -200,6 +205,7 @@ class DUIMG:
     RETURN = f"{BASE}/return.png"
     ENSURE = f"{BASE}/ensure.png"
     ENSURE2 = f"{BASE}/ensure2.png"
+    SELECT_GRAND_MIRACLE = f"{BASE}/select_grand_miracle.png"
 # endregion
 
 # region 任务完成专用

@@ -36,9 +36,6 @@
     <data name="ResourceIntegrityCheckText" xml:space="preserve">
         <value>Resource integrity check</value>
     </data>
-    <data name="ScriptStoreText" xml:space="preserve">
-        <value>Scripts</value>
-    </data>
     <data name="ExtensionText" xml:space="preserve">
         <value>Extension</value>
     </data>
@@ -293,5 +290,8 @@
     </data>
     <data name="MainPyText" xml:space="preserve">
         <value>The Path to main.py</value>
+    </data>
+    <data name="CloudGameText" xml:space="preserve">
+        <value>Use StarRail Cloud Game</value>
     </data>
 </root>
