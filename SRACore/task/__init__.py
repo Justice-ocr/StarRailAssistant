@@ -31,6 +31,11 @@ class BaseTask(Executable, ABC):
         """子类可重写此方法以进行额外初始化"""
         pass
 
+    def get_param(self, key: str, default=None):
+        """获取自定义任务参数，从 config['_task_params'] 里取值"""
+        params = self.config.get('_task_params', {})
+        return params.get(key, default)
+
     @final
     def start(self) -> None:
         self.on_start()

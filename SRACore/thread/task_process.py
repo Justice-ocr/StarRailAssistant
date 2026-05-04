@@ -1,5 +1,6 @@
 # type: ignore
 import importlib
+import importlib.util
 import threading
 
 import tomllib
@@ -150,15 +151,86 @@ class TaskManager:
             operator = Operator(stop_event=self._stop_event)
 
         # 遍历 task_select，根据选择状态实例化对应任务
-        for index, is_select in enumerate(task_select):
-            # 检查：1. 任务被选中 2. 索引在 task_list 范围内
-            if is_select and index < len(self.task_list):
-                try:
-                    # 实例化任务类
-                    tasks.append(self.task_list[index](operator, config))
-                except Exception as e:
-                    logger.exception(Resource.task_instantiateFailed(index, str(e)))
+        task_order = config.get("TaskOrder", [])
+        custom_tasks_map = {
+            f"CustomTask_{ct['Id']}": ct
+            for ct in config.get("CustomTasks", [])
+            if ct.get("IsEnabled", False)
+        }
+
+        if task_order:
+            # 按 TaskOrder 顺序执行（内置任务 + 自定义任务混排）
+            builtin_name_to_class = {cls.__name__: cls for cls in self.task_list}
+            for task_name in task_order:
+                if task_name in custom_tasks_map:
+                    # 自定义脚本任务
+                    ct = custom_tasks_map[task_name]
+                    try:
+                        task_instance = self._load_custom_task(ct, operator, config)
+                        if task_instance:
+                            tasks.append(task_instance)
+                    except Exception as e:
+                        logger.exception(Resource.task_instantiateFailed(task_name, str(e)))
+                elif task_name in builtin_name_to_class:
+                    # 内置任务（按名称匹配）
+                    index = self.task_list.index(builtin_name_to_class[task_name])
+                    if index < len(task_select) and task_select[index]:
+                        try:
+                            tasks.append(self.task_list[index](operator, config))
+                        except Exception as e:
+                            logger.exception(Resource.task_instantiateFailed(index, str(e)))
+        else:
+            # 兼容旧格式：只有 EnabledTasks 数组
+            for index, is_select in enumerate(task_select):
+                if is_select and index < len(self.task_list):
+                    try:
+                        tasks.append(self.task_list[index](operator, config))
+                    except Exception as e:
+                        logger.exception(Resource.task_instantiateFailed(index, str(e)))
         return tasks
+
+    def _load_custom_task(self, ct: dict, operator, config: dict):
+        """加载并实例化自定义脚本任务"""
+        import sys
+        from pathlib import Path
+        from SRACore.util.const import AppDataDir
+
+        script_id = ct.get("ScriptId", "")
+        task_entry = ct.get("TaskEntry", "main.py")
+        task_class_name = ct.get("TaskClassName", "")
+        params = ct.get("Params", {})
+
+        # 脚本目录：%APPDATA%/SRA/scripts/{script_id}/
+        scripts_dir = AppDataDir / "scripts"
+        script_dir = scripts_dir / script_id
+        entry_path = script_dir / task_entry
+
+        if not entry_path.exists():
+            logger.error(f"自定义任务脚本文件不存在：{entry_path}")
+            return None
+
+        # 动态加载脚本模块
+        module_name = f"_sra_script_{script_id}_{task_entry.replace('.py', '')}"
+        if str(script_dir) not in sys.path:
+            sys.path.insert(0, str(script_dir))
+        if str(scripts_dir) not in sys.path:
+            sys.path.insert(0, str(scripts_dir))
+
+        try:
+            spec = importlib.util.spec_from_file_location(module_name, entry_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            task_class = getattr(module, task_class_name)
+        except Exception as e:
+            logger.error(f"加载自定义任务 {task_class_name} 失败：{e}")
+            return None
+
+        # 把脚本参数注入 config
+        task_config = dict(config)
+        task_config['_task_params'] = params
+        task_config['_task_name'] = ct.get("Name", script_id)
+
+        return task_class(operator, task_config)
 
     def run_task(self, task: int | str, config_name: str | None = None) -> bool:
         """
@@ -215,18 +287,30 @@ class TaskManager:
     def get_task(self, config_name: str, task: str) -> BaseTask | None:
         """
         根据配置名称和任务索引或名称获取单个任务实例。
-
-        Args:
-            config_name (str): 配置名称
-            task ( str): 任务索引或任务类名称（str）
-
-        Returns:
-            BaseTask: 任务实例
-
-        Raises:
-            ValueError: 如果任务未找到或配置加载失败
+        支持自定义脚本任务（task 形如 CustomTask_xxx）。
         """
-        # 根据参数类型获取任务类
+        config = load_config(config_name)
+        if config is None:
+            return None
+
+        if load_settings("general").get("cloudGame.enabled"):
+            operator = BrowserOperator(stop_event=self._stop_event)
+        else:
+            operator = Operator(stop_event=self._stop_event)
+
+        # 自定义脚本任务
+        if task.startswith("CustomTask_"):
+            custom_id = task[len("CustomTask_"):]
+            ct = next(
+                (c for c in config.get("CustomTasks", []) if c.get("Id") == custom_id),
+                None
+            )
+            if ct is None:
+                logger.error(f"未找到自定义任务：{task}")
+                return None
+            return self._load_custom_task(ct, operator, config)
+
+        # 内置任务
         task_class = None
         if task.isdecimal():
             index = int(task)
@@ -242,19 +326,10 @@ class TaskManager:
         if task_class is None:
             return None
         try:
-            # 加载指定配置
-            config = load_config(config_name)
-            if config is None:
-                return None
             print_config = config.copy()
             print_config["StartGamePassword"] = "******"
             print_config["StartGameUsername"] = "******"
             logger.debug('config: ' + str(config))
-            # 实例化任务类
-            if load_settings("general").get("cloudGame.enabled"):
-                operator = BrowserOperator(stop_event=self._stop_event)
-            else:
-                operator = Operator(stop_event=self._stop_event)
             return task_class(operator, config)
         except Exception as e:
             logger.error(Resource.task_instantiateFailed(task, f'{e.__class__.__name__}: {e}'))
