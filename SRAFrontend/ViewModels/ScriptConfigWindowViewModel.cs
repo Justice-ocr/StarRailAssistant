@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -24,6 +25,7 @@ public partial class ScriptParamValueViewModel : ObservableObject
     public List<string> Options => Def.Options ?? [];
 
     public bool IsText => Def.Type is "string" or "int" or "number" or null or "";
+    public bool IsFolder => Def.Type == "folder";
     public bool IsBool => Def.Type == "bool";
     public bool IsSelect => Def.Type == "select";
 
@@ -33,6 +35,21 @@ public partial class ScriptParamValueViewModel : ObservableObject
     public ScriptParamValueViewModel(ScriptParamDef def, string currentValue)
     {
         Def = def;
+        BrowseFolderCommand = new RelayCommand(async () =>
+        {
+            var topLevel = Avalonia.Application.Current?.ApplicationLifetime is
+                Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime dl
+                ? dl.MainWindow : null;
+            if (topLevel == null) return;
+            var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(
+                new Avalonia.Platform.Storage.FolderPickerOpenOptions
+                {
+                    Title = "选择文件夹",
+                    AllowMultiple = false
+                });
+            if (folders.Count > 0)
+                Value = folders[0].Path.LocalPath;
+        });
         if (IsBool)
         {
             _boolValue = currentValue is "true" or "True" or "1";
@@ -47,6 +64,8 @@ public partial class ScriptParamValueViewModel : ObservableObject
     partial void OnBoolValueChanged(bool value) => Value = value.ToString().ToLower();
 
     public string GetSaveValue() => IsBool ? BoolValue.ToString().ToLower() : Value;
+
+    public ICommand BrowseFolderCommand { get; }
 }
 
 /// <summary>参数分组</summary>

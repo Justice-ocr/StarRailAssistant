@@ -47,6 +47,7 @@ public partial class RepoScriptInfo : ObservableObject
     [ObservableProperty] private string _author = "";
     [ObservableProperty] private string _lastUpdated = "";
     [ObservableProperty] private string _downloadUrl = "";
+    [ObservableProperty] private string _repoPath = "";
     [ObservableProperty] private string? _installedVersion;
     [ObservableProperty] private bool _hasUpdate;
 

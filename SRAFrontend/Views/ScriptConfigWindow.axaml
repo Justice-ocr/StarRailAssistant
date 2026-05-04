@@ -55,6 +55,18 @@
                                                          Text="{Binding Value}"
                                                          Watermark="{Binding DefaultValue}"/>
 
+                                                <!-- folder：文本框 + 浏览按钮 -->
+                                                <Grid IsVisible="{Binding IsFolder}"
+                                                      ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                    <TextBox Grid.Column="0"
+                                                             Text="{Binding Value}"
+                                                             Watermark="{Binding DefaultValue}"/>
+                                                    <Button Grid.Column="1"
+                                                            Content="浏览..."
+                                                            Command="{Binding BrowseFolderCommand}"
+                                                            VerticalAlignment="Center"/>
+                                                </Grid>
+
                                                 <!-- bool -->
                                                 <ToggleSwitch IsVisible="{Binding IsBool}"
                                                               IsChecked="{Binding BoolValue}"

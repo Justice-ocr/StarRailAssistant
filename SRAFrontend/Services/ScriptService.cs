@@ -17,9 +17,9 @@ namespace SRAFrontend.Services;
 public class ScriptService
 {
     private static readonly string ScriptsDir =
-        Path.Combine(PathString.AppDataSraDir, "scripts");
+        Path.Combine(PathString.AppDataDir, "scripts");
     private static readonly string ReposConfigPath =
-        Path.Combine(PathString.AppDataSraDir, "script_repos.json");
+        Path.Combine(PathString.AppDataDir, "script_repos.json");
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -74,10 +74,37 @@ public class ScriptService
 
     // ===== 远程脚本列表 =====
 
+    /// <summary>
+    /// 将用户输入的 GitHub 仓库 URL 转换为 repo.json 的直链地址
+    /// </summary>
+    private static string ResolveRepoJsonUrl(string url)
+    {
+        url = url.TrimEnd('/');
+        // 已经是直链（raw / 非 github.com 域名）
+        if (!url.Contains("github.com") || url.Contains("raw.githubusercontent.com"))
+            return url;
+        // github.com/user/repo/blob/branch/path → raw URL
+        if (url.Contains("/blob/"))
+            return url.Replace("github.com", "raw.githubusercontent.com").Replace("/blob/", "/");
+        // github.com/user/repo → 补上 /main/repo.json
+        // 去掉可能的 /tree/branch 前缀
+        var uri = new Uri(url);
+        var segments = uri.AbsolutePath.Trim('/').Split('/');
+        if (segments.Length >= 2)
+        {
+            var user = segments[0];
+            var repo = segments[1];
+            var branch = segments.Length >= 4 && segments[2] == "tree" ? segments[3] : "main";
+            return $"https://raw.githubusercontent.com/{user}/{repo}/{branch}/repo.json";
+        }
+        return url;
+    }
+
     public async Task<List<RepoScriptInfo>> FetchRepoScriptsAsync(ScriptRepo repo)
     {
         var client = _httpClientFactory.CreateClient("GlobalClient");
-        var json = await client.GetStringAsync(repo.Url);
+        var resolvedUrl = ResolveRepoJsonUrl(repo.Url);
+        var json = await client.GetStringAsync(resolvedUrl);
         var root = JsonSerializer.Deserialize<RepoIndex>(json, JsonOpts);
         if (root?.Scripts == null) return [];
 
@@ -97,6 +124,7 @@ public class ScriptService
                 Author = item.Author ?? "",
                 LastUpdated = item.LastUpdated ?? "",
                 DownloadUrl = item.DownloadUrl ?? "",
+                RepoPath = item.RepoPath ?? "",
             };
             if (installedMap.TryGetValue(info.Id, out var ver))
             {
@@ -197,14 +225,111 @@ public class ScriptService
 
     // ===== 下载安装 =====
 
-    public async Task<bool> DownloadAndInstallAsync(
+    /// <summary>
+    /// 从 raw.githubusercontent.com 直接逐文件下载脚本，比下载整个仓库 zip 更快。
+    /// 返回 null 表示无法使用此方式（fallback 到 zip），true/false 表示成功/失败。
+    /// </summary>
+    private async Task<bool?> TryInstallFromRawAsync(
+        RepoScriptInfo info,
+        IProgress<(int Percent, string Message)>? progress)
+    {
+        try
+        {
+            // download_url: https://github.com/user/repo/archive/refs/heads/main.zip
+            // 转换为 raw base: https://raw.githubusercontent.com/user/repo/main/
+            // 构造 raw base URL
+            string rawBase;
+            if (info.DownloadUrl.Contains("raw.githubusercontent.com"))
+            {
+                // 已经是 raw base URL，直接使用
+                rawBase = info.DownloadUrl.TrimEnd('/') + "/";
+            }
+            else if (info.DownloadUrl.Contains("/archive/"))
+            {
+                // archive zip URL 转换
+                rawBase = info.DownloadUrl
+                    .Replace("github.com", "raw.githubusercontent.com")
+                    .Replace("/archive/refs/heads/", "/")
+                    .Replace(".zip", "/");
+                if (!string.IsNullOrEmpty(info.RepoPath))
+                    rawBase = rawBase.TrimEnd('/') + "/" + info.RepoPath.TrimEnd('/') + "/";
+            }
+            else
+            {
+                return null; // 无法识别的 URL 格式，fallback
+            }
+
+            // 先下载 manifest.json 获取文件列表
+            var manifestUrl = rawBase + "manifest.json";
+            var client = _httpClientFactory.CreateClient("GlobalClient");
+
+            progress?.Report((5, "正在获取脚本清单..."));
+            var manifestResp = await client.GetAsync(manifestUrl);
+            if (!manifestResp.IsSuccessStatusCode) return null; // fallback
+
+            var manifestJson = await manifestResp.Content.ReadAsStringAsync();
+            if (manifestJson.TrimStart().StartsWith('<')) return null; // 返回了 HTML，fallback
+
+            var manifest = JsonSerializer.Deserialize<ManifestJson>(manifestJson, JsonOpts);
+            if (manifest == null) return null;
+
+            // 收集需要下载的文件（manifest.json + settings.json + README.md + 所有 task 文件）
+            var files = new List<string> { "manifest.json" };
+            if (manifest.Tasks != null)
+                foreach (var task in manifest.Tasks)
+                    if (!string.IsNullOrEmpty(task.Entry) && !files.Contains(task.Entry))
+                        files.Add(task.Entry);
+            // 尝试下载可选文件
+            foreach (var optional in new[] { "settings.json", "README.md" })
+                files.Add(optional);
+
+            var scriptDir = GetScriptDir(info.Id);
+            if (Directory.Exists(scriptDir)) Directory.Delete(scriptDir, true);
+            Directory.CreateDirectory(scriptDir);
+
+            int downloaded = 0;
+            foreach (var file in files)
+            {
+                var fileUrl = rawBase + file;
+                var resp = await client.GetAsync(fileUrl);
+                downloaded++;
+                var pct = 10 + (int)(downloaded * 85.0 / files.Count);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    // 可选文件不存在不报错
+                    if (file is "settings.json" or "README.md") continue;
+                    progress?.Report((0, $"下载失败: {file} ({(int)resp.StatusCode})"));
+                    if (Directory.Exists(scriptDir)) Directory.Delete(scriptDir, true);
+                    return false;
+                }
+                var bytes = await resp.Content.ReadAsByteArrayAsync();
+                await File.WriteAllBytesAsync(Path.Combine(scriptDir, file), bytes);
+                progress?.Report((pct, $"已下载 {file}"));
+            }
+
+            progress?.Report((100, "安装完成"));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            progress?.Report((0, $"直接下载失败，尝试备用方式: {ex.Message}"));
+            return null; // fallback 到 zip 方式
+        }
+    }
+
+        public async Task<bool> DownloadAndInstallAsync(
         RepoScriptInfo info,
         IProgress<(int Percent, string Message)>? progress = null)
     {
         if (string.IsNullOrEmpty(info.DownloadUrl)) return false;
 
+        // 优先用 raw 逐文件下载（download_url 为 raw base 或含 /archive/ 时均支持）
+        var rawInstalled = await TryInstallFromRawAsync(info, progress);
+        if (rawInstalled.HasValue) return rawInstalled.Value;
+        // fallback 到 zip 方式（download_url 为完整 zip 地址时）
+
         var scriptDir = GetScriptDir(info.Id);
-        var tmpZip = Path.Combine(PathString.AppDataSraDir, $"_tmp_{info.Id}.zip");
+        var tmpZip = Path.Combine(PathString.AppDataDir, $"_tmp_{info.Id}.zip");
 
         try
         {
@@ -242,10 +367,11 @@ public class ScriptService
             progress?.Report((100, "安装完成"));
             return true;
         }
-        catch
+        catch (Exception ex)
         {
             if (Directory.Exists(scriptDir))
                 Directory.Delete(scriptDir, true);
+            progress?.Report((0, $"安装失败: {ex.Message}"));
             return false;
         }
         finally
@@ -272,6 +398,10 @@ public class ScriptService
             }
             if (!string.IsNullOrEmpty(prefix)) break;
         }
+
+        if (string.IsNullOrEmpty(prefix))
+            throw new InvalidOperationException(
+                $"在 ZIP 中未找到脚本目录 '{scriptId}'，请确认脚本仓库结构为 repo/{scriptId}/");
 
         foreach (var entry in archive.Entries)
         {
@@ -323,6 +453,7 @@ public class ScriptService
         [JsonPropertyName("author")]      public string? Author { get; set; }
         [JsonPropertyName("last_updated")]public string? LastUpdated { get; set; }
         [JsonPropertyName("download_url")]public string? DownloadUrl { get; set; }
+        [JsonPropertyName("repo_path")]   public string? RepoPath { get; set; }
     }
 
     private class ManifestJson

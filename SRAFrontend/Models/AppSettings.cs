@@ -378,7 +378,7 @@ public partial class AdvancedSettings : ObservableObject
     
     [ObservableProperty]
     [property: JsonPropertyName("backend.usePython")]
-    private bool _isBackendUsePython = true;
+    private bool _isBackendUsePython = false;
 
     [ObservableProperty]
     [property: JsonPropertyName("developerMode.enabled")]

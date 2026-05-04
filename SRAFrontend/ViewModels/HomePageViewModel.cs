@@ -35,7 +35,7 @@ public partial class HomePageViewModel(
 
     private async Task<Bitmap> GetBackgroundImageAsync()
     {
-        var backgroundImagePath = settingsService.Settings.BackgroundImagePath;
+        var backgroundImagePath = settingsService.Settings.Display.BackgroundImageUri;
 
         if (string.IsNullOrEmpty(backgroundImagePath))
             return DefaultImage;
@@ -72,7 +72,7 @@ public partial class HomePageViewModel(
         return DefaultImage;
     }
 
-    public double ImageOpacity => settingsService.Settings.BackgroundOpacity;
-    public double GlassCardOpacity => settingsService.Settings.CtrlPanelOpacity;
+    public double ImageOpacity => settingsService.Settings.Display.BackgroundOpacity;
+    public double GlassCardOpacity => settingsService.Settings.Display.ControlPanelOpacity;
     public ControlPanelViewModel ControlPanelViewModel => controlPanelViewModel;
 }

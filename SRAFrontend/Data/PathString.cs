@@ -1,23 +1,16 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
 
 namespace SRAFrontend.Data;
 
-/// <summary>
-/// 路径字符串常量
-/// </summary>
 public static class PathString
 {
     private static readonly string AppRoot = AppContext.BaseDirectory;
 
-    // upstream: AppDataDir / fork-dev: AppDataSraDir — 两个别名指向同一路径，兼容双方引用
     public static readonly string AppDataDir = GetAppDataDirectory();
-    public static readonly string AppDataSraDir = AppDataDir;
 
-    // upstream: TempDir / fork-dev: TempSraDir — 同上
     public static readonly string TempDir = Path.Combine(Path.GetTempPath(), "SRA");
-    public static readonly string TempSraDir = TempDir;
 
     public static readonly string SettingsJson = Path.Combine(AppDataDir, "settings.json");
     public static readonly string CacheJson = Path.Combine(AppDataDir, "cache.json");
@@ -33,7 +26,6 @@ public static class PathString
     public static readonly string SraExecutablePath = GetSraExecutablePath();
     public static readonly string SraOldExecutablePath = GetSraOldExecutablePath();
     public static readonly string DesktopShortcutPath = GetDesktopShortcutPath();
-
     public static string PythonExe => RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
         ? Path.Combine(PythonDir, "python.exe")
         : Path.Combine(PythonDir, "bin", "python3");
@@ -45,6 +37,8 @@ public static class PathString
         EnsureDirectoryExists(ConfigsDir);
         EnsureDirectoryExists(FrontendLogsDir);
         EnsureDirectoryExists(PythonDir);
+        // EnsureDirectoryExists(BackendLogsDir);
+        // EnsureDirectoryExists(ReportsDir);
     }
 
     private static string GetAppDataDirectory()

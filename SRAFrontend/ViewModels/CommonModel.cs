@@ -67,7 +67,7 @@ public class CommonModel(
     
     public async Task CheckPythonEnvironmentAsync()
     {
-        if (!settingsService.Settings.IsUsingPython) return;
+        if (!settingsService.Settings.Advanced.IsBackendUsePython) return;
         if (PythonService.IsEnvironmentReady()) return;
         var result = await SukiMessageBox.ShowDialog(new SukiMessageBoxHost
         {
@@ -108,14 +108,14 @@ public class CommonModel(
 
     public async Task CheckForUpdatesAsync()
     {
-        var cdk = settingsService.Settings.MirrorChyanCdk;
-        var channel = settingsService.Settings.AppChannel == 0 ? "stable" : "beta";
+        var cdk = settingsService.Settings.Update.MirrorChyanCdk;
+        var channel = settingsService.Settings.Update.UpdateChannel == 0 ? "stable" : "beta";
 
-        var currentVersion = SemVerParser.Parse(Settings.Version);
+        var currentVersion = SemVerParser.Parse(AppSettings.Version);
         logger.LogDebug("Checking for updates: {Version}", currentVersion);
         if (currentVersion == null)
         {
-            logger.LogError("Failed to parse current version: {Version}", Settings.Version);
+            logger.LogError("Failed to parse current version: {Version}", AppSettings.Version);
             ShowErrorToast("检查更新失败", "当前版本号格式无效");
             return;
         }
@@ -145,7 +145,7 @@ public class CommonModel(
             return;
         }
 
-        if (settingsService.Settings.EnableAutoUpdate)
+        if (settingsService.Settings.Update.IsAutoUpdate)
         {
             ShowInfoToast("发现新版本", $"正在自动下载更新包：{response.Data.VersionName}");
             _ = HandleUpdateAsync(response, remoteVersion);
@@ -255,7 +255,7 @@ public class CommonModel(
 
     private async Task HandleUpdateAsync(VersionResponse versionResponse, SemVerInfo remoteVersion)
     {
-        // var currentVersion = SemVerParser.Parse(Settings.Version)!;
+        // var currentVersion = SemVerParser.Parse(AppSettings.Version)!;
         // var isHotfix = VersionHelper.IsHotfix(currentVersion, remoteVersion);
         var isHotfix = false; // 这是以后可能会用到的妙妙小工具
         var (progressPanel, progressLabel, progressBar, cts) = BuildDownloadProgressUi();
@@ -270,7 +270,7 @@ public class CommonModel(
             progressBar.Value = value.ProgressPercent;
             progressLabel.Content = $"{value.FormattedDownloadedSize} / {value.FormattedTotalSize} {value.FormattedSpeed}";
         });
-        var downloadChannel = settingsService.Settings.DownloadChannel;
+        var downloadChannel = settingsService.Settings.Update.DownloadChannel;
         string downloadFilePath;
         try
         {
