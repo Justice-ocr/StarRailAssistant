@@ -1,6 +1,9 @@
 # type: ignore
 import importlib
+import importlib.util
+import sys
 import threading
+from pathlib import Path
 
 import tomllib
 from typing import Any
@@ -14,7 +17,7 @@ from SRACore.util import (
     notify,
     sys_util,  # NOQA 有动态用法，确保被打包 # type: ignore
 )
-from SRACore.util.const import AppRootDir
+from SRACore.util.const import AppDataDir, AppRootDir
 from SRACore.util.data_persister import load_cache, load_config, load_settings
 from SRACore.util.errors import ThreadStoppedError
 from SRACore.util.logger import logger
@@ -175,11 +178,6 @@ class TaskManager:
 
     def _load_custom_task(self, ct: dict, operator, config: dict):
         """加载并实例化自定义脚本任务"""
-        import sys
-        import importlib.util
-        from pathlib import Path
-        from SRACore.util.const import AppDataDir
-
         script_id = ct.get("ScriptId", "")
         task_entry = ct.get("TaskEntry", "main.py")
         task_class_name = ct.get("TaskClassName", "")

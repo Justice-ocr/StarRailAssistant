@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -255,7 +255,7 @@ public class CommonModel(
 
     private async Task HandleUpdateAsync(VersionResponse versionResponse, SemVerInfo remoteVersion)
     {
-        // var currentVersion = SemVerParser.Parse(AppSettings.Version)!;
+        // var currentVersion = SemVerParser.Parse(Settings.Version)!;
         // var isHotfix = VersionHelper.IsHotfix(currentVersion, remoteVersion);
         var isHotfix = false; // 这是以后可能会用到的妙妙小工具
         var (progressPanel, progressLabel, progressBar, cts) = BuildDownloadProgressUi();

@@ -10,11 +10,11 @@ namespace SRAFrontend.ViewModels;
 /// <summary>单个任务的通知配置项（含分组标记）</summary>
 public partial class TaskNotificationItem : ObservableObject
 {
-    public string ClassName { get; set; } = "";
-    [ObservableProperty] private string _displayName = "";
+    public string ClassName    { get; init; } = "";
+    public string DisplayName  { get; init; } = "";
+    public bool   IsCustomTask { get; init; }
     [ObservableProperty] private bool _notifyOnStart;
     [ObservableProperty] private bool _notifyOnComplete;
-    public bool IsCustomTask { get; set; }  // 用于 UI 区分内置/自定义任务
 }
 
 public partial class TaskNotificationWindowViewModel : ObservableObject
@@ -52,7 +52,6 @@ public partial class TaskNotificationWindowViewModel : ObservableObject
                 DisplayName      = display,
                 NotifyOnStart    = onStart.Contains(cls),
                 NotifyOnComplete = onComplete.Contains(cls),
-                IsCustomTask     = false,
             });
         }
 
