@@ -1,0 +1,83 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:SRAFrontend.ViewModels"
+        x:DataType="vm:TaskNotificationWindowViewModel"
+        x:Class="SRAFrontend.Views.TaskNotificationWindow"
+        Title="任务通知配置"
+        Width="440" Height="560"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid RowDefinitions="*, Auto" Margin="20">
+        <ScrollViewer Grid.Row="0">
+            <StackPanel Spacing="12">
+                <TextBlock Text="选择需要发送通知的任务和时机"
+                           FontSize="13"
+                           Foreground="{DynamicResource SukiLowText}"/>
+
+                <ItemsControl ItemsSource="{Binding TaskNotifications}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TaskNotificationItem">
+                            <Border Margin="0,0,0,6"
+                                    Padding="12,10"
+                                    CornerRadius="8"
+                                    Background="{DynamicResource SukiCardBackground}">
+                                <Grid ColumnDefinitions="*, Auto, Auto">
+                                    <!-- 任务名 + 自定义标签 -->
+                                    <StackPanel Grid.Column="0"
+                                                Orientation="Horizontal"
+                                                Spacing="8"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   FontSize="14"
+                                                   VerticalAlignment="Center"/>
+                                        <Border IsVisible="{Binding IsCustomTask}"
+                                                Width="6" Height="6"
+                                                CornerRadius="3"
+                                                Background="{DynamicResource SukiAccentColor}"
+                                                VerticalAlignment="Center"/>
+                                    </StackPanel>
+
+                                    <!-- 开始时 -->
+                                    <StackPanel Grid.Column="1"
+                                                Orientation="Horizontal"
+                                                Spacing="4"
+                                                Margin="8,0">
+                                        <CheckBox IsChecked="{Binding NotifyOnStart}"
+                                                  Content="开始时"/>
+                                    </StackPanel>
+
+                                    <!-- 完成时 -->
+                                    <StackPanel Grid.Column="2"
+                                                Orientation="Horizontal"
+                                                Spacing="4">
+                                        <CheckBox IsChecked="{Binding NotifyOnComplete}"
+                                                  Content="完成时"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*, Auto, Auto"
+              Margin="0,12,0,0">
+            <TextBlock Grid.Column="0"
+                       Text="通知渠道请在「设置 - 通知」中配置"
+                       FontSize="12"
+                       Foreground="{DynamicResource SukiLowText}"
+                       VerticalAlignment="Center"/>
+            <Button Grid.Column="1"
+                    Content="取消"
+                    Classes="Flat Rounded"
+                    Margin="0,0,8,0"
+                    Command="{Binding CancelCommand}"/>
+            <Button Grid.Column="2"
+                    Content="保存"
+                    Classes="Rounded"
+                    Command="{Binding SaveCommand}"/>
+        </Grid>
+    </Grid>
+</Window>

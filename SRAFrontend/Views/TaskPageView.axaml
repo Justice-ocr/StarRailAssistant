@@ -47,9 +47,22 @@
                                             Cursor="SizeWestEast"
                                             PointerPressed="TabHeader_PointerPressed"
                                             ToolTip.Tip="左右拖动调整顺序">
-                                        <TextBlock Text="{Binding DisplayName}"
-                                                   FontSize="14"
-                                                   VerticalAlignment="Center"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       FontSize="14"
+                                                       VerticalAlignment="Center"/>
+                                            <!-- 自定义任务角标 -->
+                                            <Border IsVisible="{Binding IsCustom}"
+                                                    Padding="4,1"
+                                                    CornerRadius="3"
+                                                    Background="{DynamicResource SukiAccentColor}"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="自定"
+                                                           FontSize="10"
+                                                           Foreground="White"
+                                                           VerticalAlignment="Center"/>
+                                            </Border>
+                                        </StackPanel>
                                     </Border>
                                     <Border Height="3" VerticalAlignment="Bottom"
                                             Background="{DynamicResource SukiAccentColor}"

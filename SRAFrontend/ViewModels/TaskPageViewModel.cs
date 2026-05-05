@@ -50,6 +50,7 @@ public partial class TaskOrderItem : ObservableObject
     /// <summary>固定位置，不可移动（启动游戏固定首位，任务完成固定末位）</summary>
     public bool IsFixed { get; set; } = false;
     public bool IsMovable => !IsFixed;
+    public bool IsCustom { get; set; } = false;
     /// <summary>在 AllTaskDefs 中的原始索引（用于 EnabledTasks 绑定）</summary>
     public int OriginalIndex { get; set; } = -1;
 }
@@ -210,7 +211,14 @@ public partial class TaskPageViewModel : PageViewModel
 
         // 中间可移动任务
         foreach (var (className, displayName, enabled) in middleItems)
-            TaskOrderList.Add(new TaskOrderItem { ClassName = className, DisplayName = displayName, IsEnabled = enabled, IsFixed = false, OriginalIndex = AllTaskDefs.FindIndex(d => d.ClassName == className) });
+            TaskOrderList.Add(new TaskOrderItem {
+                ClassName     = className,
+                DisplayName   = displayName,
+                IsEnabled     = enabled,
+                IsFixed       = false,
+                IsCustom      = CustomTaskPrefix.IsCustom(className),
+                OriginalIndex = AllTaskDefs.FindIndex(d => d.ClassName == className)
+            });
 
         // 中间：插入 CustomTasks（按 TaskOrder 里的顺序，或按 CustomTasks 定义顺序）
         foreach (var entry in CurrentConfig.CustomTasks)
@@ -559,6 +567,7 @@ public partial class TaskPageViewModel : PageViewModel
             DisplayName = entry.Name,
             IsEnabled = true,
             IsFixed = false,
+            IsCustom = true,
             OriginalIndex = -1
         };
         newItem.PropertyChanged += (_, _) => SyncTaskOrderToConfig();

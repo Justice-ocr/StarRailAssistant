@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -11,6 +11,11 @@
         Orientation="Horizontal"
         HorizontalAlignment="Right"
         Spacing="10">
+        <!-- 任务通知配置按钮 -->
+        <Button Classes="Icon" Content="&#xe0ce;"
+                Command="{Binding OpenNotificationConfigCommand}"
+                ToolTip.Tip="任务通知配置"/>
+
         <TextBox Width="250"
                  Watermark="{x:Static lang:Resources.ConfigInputMarkText}"
                  Text="{Binding NewConfigName}"

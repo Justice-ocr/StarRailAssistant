@@ -1,8 +1,10 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SRAFrontend.Localization;
 using SRAFrontend.Models;
 using SRAFrontend.Services;
+using Avalonia.Controls.ApplicationLifetimes;
+using SRAFrontend.Views;
 using SRAFrontend.ViewModels;
 
 namespace SRAFrontend.Controls;
@@ -127,6 +129,16 @@ public partial class ControlPanelViewModel : ViewModelBase
         }
         Cache.ConfigNames.Add(NewConfigName);
         NewConfigName = "";
+    }
+
+    [RelayCommand]
+    private void OpenNotificationConfig()
+    {
+        var mainWindow = (Avalonia.Application.Current?.ApplicationLifetime
+            as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+        var window = new TaskNotificationWindow();
+        window.DataContext = new TaskNotificationWindowViewModel(_settingsService, _configService, window);
+        window.ShowDialog(mainWindow);
     }
 
     [RelayCommand]

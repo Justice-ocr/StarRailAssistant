@@ -1,6 +1,5 @@
 # type: ignore
 import importlib
-import importlib.util
 import threading
 
 import tomllib
@@ -9,7 +8,7 @@ from typing import Any
 from SRACore.localization import Resource
 from SRACore.operators import Operator
 from SRACore.operators.browser_operator import BrowserOperator
-from SRACore.task import BaseTask
+from SRACore.task import BaseTask, get_tasks
 from SRACore.util import (
     encryption,  # NOQA 有动态用法，确保被打包 # type: ignore
     notify,
@@ -33,19 +32,7 @@ class TaskManager:
         """
         self.log_queue = None
         self._stop_event = threading.Event()
-        self.task_list: list[type[BaseTask]] = []
-        with open(AppRootDir / "SRACore/config.toml", "rb") as f:
-            tasks = tomllib.load(f).get("tasks", [])
-            for task in tasks:
-                main_class = task.get("main")
-                module = task.get("module")
-                _module = importlib.import_module(module)
-                _class = getattr(_module, main_class)
-                if not issubclass(_class, BaseTask):
-                    raise TypeError(f"Task class {main_class} does not inherit from BaseTask")
-                if not callable(getattr(_class, "run", None)):
-                    raise TypeError(f"Task class {main_class} does not implement a callable 'run' method")
-                self.task_list.append(_class)
+        self.task_list: list[type[BaseTask]] = get_tasks()
         logger.debug(f"Successfully load task: {self.task_list}")
 
     def request_stop(self) -> None:
@@ -150,7 +137,6 @@ class TaskManager:
         else:
             operator = Operator(stop_event=self._stop_event)
 
-        # 遍历 task_select，根据选择状态实例化对应任务
         task_order = config.get("TaskOrder", [])
         custom_tasks_map = {
             f"CustomTask_{ct['Id']}": ct
@@ -163,7 +149,6 @@ class TaskManager:
             builtin_name_to_class = {cls.__name__: cls for cls in self.task_list}
             for task_name in task_order:
                 if task_name in custom_tasks_map:
-                    # 自定义脚本任务
                     ct = custom_tasks_map[task_name]
                     try:
                         task_instance = self._load_custom_task(ct, operator, config)
@@ -172,8 +157,7 @@ class TaskManager:
                     except Exception as e:
                         logger.exception(Resource.task_instantiateFailed(task_name, str(e)))
                 elif task_name in builtin_name_to_class:
-                    # 内置任务（按名称匹配）
-                    index = self.task_list.index(builtin_name_to_class[task_name])
+                    index = list(self.task_list).index(builtin_name_to_class[task_name])
                     if index < len(task_select) and task_select[index]:
                         try:
                             tasks.append(self.task_list[index](operator, config))
@@ -192,6 +176,7 @@ class TaskManager:
     def _load_custom_task(self, ct: dict, operator, config: dict):
         """加载并实例化自定义脚本任务"""
         import sys
+        import importlib.util
         from pathlib import Path
         from SRACore.util.const import AppDataDir
 
@@ -200,7 +185,6 @@ class TaskManager:
         task_class_name = ct.get("TaskClassName", "")
         params = ct.get("Params", {})
 
-        # 脚本目录：%APPDATA%/SRA/scripts/{script_id}/
         scripts_dir = AppDataDir / "scripts"
         script_dir = scripts_dir / script_id
         entry_path = script_dir / task_entry
@@ -209,7 +193,6 @@ class TaskManager:
             logger.error(f"自定义任务脚本文件不存在：{entry_path}")
             return None
 
-        # 动态加载脚本模块
         module_name = f"_sra_script_{script_id}_{task_entry.replace('.py', '')}"
         if str(script_dir) not in sys.path:
             sys.path.insert(0, str(script_dir))
@@ -225,11 +208,9 @@ class TaskManager:
             logger.error(f"加载自定义任务 {task_class_name} 失败：{e}")
             return None
 
-        # 把脚本参数注入 config
         task_config = dict(config)
         task_config['_task_params'] = params
         task_config['_task_name'] = ct.get("Name", script_id)
-
         return task_class(operator, task_config)
 
     def run_task(self, task: int | str, config_name: str | None = None) -> bool:
@@ -326,10 +307,6 @@ class TaskManager:
         if task_class is None:
             return None
         try:
-            print_config = config.copy()
-            print_config["StartGamePassword"] = "******"
-            print_config["StartGameUsername"] = "******"
-            logger.debug('config: ' + str(config))
             return task_class(operator, config)
         except Exception as e:
             logger.error(Resource.task_instantiateFailed(task, f'{e.__class__.__name__}: {e}'))
