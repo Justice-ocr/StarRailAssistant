@@ -51,6 +51,8 @@ public partial class TaskOrderItem : ObservableObject
     public bool IsFixed { get; set; } = false;
     public bool IsMovable => !IsFixed;
     public bool IsCustom { get; set; } = false;
+    public bool IsAddButton { get; set; } = false;
+    public bool IsFixedTab => IsFixed && !IsAddButton;
     /// <summary>在 AllTaskDefs 中的原始索引（用于 EnabledTasks 绑定）</summary>
     public int OriginalIndex { get; set; } = -1;
 }
@@ -234,6 +236,8 @@ public partial class TaskPageViewModel : PageViewModel
             ? CurrentConfig.TaskOrder.Contains(FixedLastTask)
             : (4 < CurrentConfig.EnabledTasks.Length && CurrentConfig.EnabledTasks[4]);
         TaskOrderList.Add(new TaskOrderItem { ClassName = lastDef.ClassName, DisplayName = lastDef.DisplayName, IsEnabled = lastEnabled, IsFixed = true, OriginalIndex = AllTaskDefs.FindIndex(d => d.ClassName == lastDef.ClassName) });
+        // 末尾追加「+」占位 Tab
+        TaskOrderList.Add(new TaskOrderItem { ClassName = "__add__", DisplayName = "+", IsFixed = true, IsAddButton = true });
 
         // 监听每个 item 的 IsEnabled 变化，同步回 Config.TaskOrder
         foreach (var item in TaskOrderList)
@@ -571,7 +575,10 @@ public partial class TaskPageViewModel : PageViewModel
             OriginalIndex = -1
         };
         newItem.PropertyChanged += (_, _) => SyncTaskOrderToConfig();
-        TaskOrderList.Insert(insertIdx, newItem);
+        // 插入到「+」Tab 前面
+        var addBtnIdx = TaskOrderList.IndexOf(TaskOrderList.FirstOrDefault(t => t.IsAddButton)!);
+        var insertPos = addBtnIdx >= 0 ? addBtnIdx : insertIdx;
+        TaskOrderList.Insert(insertPos, newItem);
         SyncTaskOrderToConfig();
         SelectTask(className);
     }

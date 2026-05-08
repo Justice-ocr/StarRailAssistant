@@ -46,7 +46,9 @@ class GeneralSettings:
     gamePathIndex: int = 0
     isAutoDetectGamePath: bool = True
     isCloudGameEnable: bool = False
+    cloudGameBrowser: str = "Microsoft Edge"
     templateMatchConfidence: float = 0.9
+    ocrMatchConfidence: float = 0.7
     isOverlayEnabled: bool = False
     isGameArgsEnabled: bool = False
     gameArgsWindowSize: str = "1920x1080"
@@ -69,7 +71,9 @@ class GeneralSettings:
             "gamePath.index": self.gamePathIndex,
             "gamePath.autoDetect": self.isAutoDetectGamePath,
             "cloudGame.enabled": self.isCloudGameEnable,
+            "cloudGame.browser": self.cloudGameBrowser,
             "templateMatchConfidence": self.templateMatchConfidence,
+            "ocrMatchConfidence": self.ocrMatchConfidence,
             "overlay.enabled": self.isOverlayEnabled,
             "gameArgs.enabled": self.isGameArgsEnabled,
             "gameArgs.windowSize": self.gameArgsWindowSize,
@@ -94,7 +98,9 @@ class GeneralSettings:
             "gamePathIndex": data.get("gamePath.index", 0),
             "isAutoDetectGamePath": data.get("gamePath.autoDetect", True),
             "isCloudGameEnable": data.get("cloudGame.enabled", False),
+            "cloudGameBrowser": data.get("cloudGame.browser", "Microsoft Edge"),
             "templateMatchConfidence": data.get("templateMatchConfidence", 0.9),
+            "ocrMatchConfidence": data.get("ocrMatchConfidence", 0.7),
             "isOverlayEnabled": data.get("overlay.enabled", False),
             "isGameArgsEnabled": data.get("gameArgs.enabled", False),
             "gameArgsWindowSize": data.get("gameArgs.windowSize", "1920x1080"),
@@ -352,22 +358,22 @@ class UpdateSettings:
 class AdvancedSettings:
     """自动生成的 AdvancedSettings 类"""
 
-    backendLaunchArgs: str = ""
+    backendLaunchArgs: str = "--inline"
+    isBackendUsePython: bool = True
     isDeveloperModeEnabled: bool = False
     isSaveOcrImage: bool = False
     isDebugOverlayEnabled: bool = False
-    isUsePython: bool = False
     pythonPath: str = ""
     pythonMain: str = ""
 
     def to_dict(self) -> dict:
         """转换为字典"""
         return {
-            "backendLaunchArgs": self.backendLaunchArgs,
+            "backend.launchArgs": self.backendLaunchArgs,
+            "backend.usePython": self.isBackendUsePython,
             "developerMode.enabled": self.isDeveloperModeEnabled,
             "developerMode.saveOcrImage": self.isSaveOcrImage,
             "developerMode.overlay": self.isDebugOverlayEnabled,
-            "developerMode.usePython": self.isUsePython,
             "developerMode.pythonPath": self.pythonPath,
             "developerMode.pythonMain": self.pythonMain
         }
@@ -376,11 +382,11 @@ class AdvancedSettings:
     def from_dict(cls, data: dict):
         """从字典创建对象"""
         return cls(**{
-            "backendLaunchArgs": data.get("backendLaunchArgs", ""),
+            "backendLaunchArgs": data.get("backend.launchArgs", "--inline"),
+            "isBackendUsePython": data.get("backend.usePython", True),
             "isDeveloperModeEnabled": data.get("developerMode.enabled", False),
             "isSaveOcrImage": data.get("developerMode.saveOcrImage", False),
             "isDebugOverlayEnabled": data.get("developerMode.overlay", False),
-            "isUsePython": data.get("developerMode.usePython", False),
             "pythonPath": data.get("developerMode.pythonPath", ""),
             "pythonMain": data.get("developerMode.pythonMain", "")
         })

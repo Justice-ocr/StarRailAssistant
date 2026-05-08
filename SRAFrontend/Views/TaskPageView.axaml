@@ -19,77 +19,77 @@
             <Border Grid.Row="1" Margin="0,4,0,0"
                     BorderBrush="{DynamicResource SukiLightBorderBrush}"
                     BorderThickness="0,0,0,1">
-                <StackPanel Orientation="Horizontal" Spacing="2">
-                    <!-- 任务标签列表 -->
-                    <ItemsControl x:Name="TabHeaderList" ItemsSource="{Binding TaskOrderList}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" Spacing="2"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:TaskOrderItem">
-                                <Panel>
-                                    <Border IsVisible="{Binding IsFixed}"
-                                            Padding="12,6"
-                                            Cursor="Hand"
-                                            PointerPressed="FixedTabHeader_PointerPressed">
-                                        <TextBlock Text="{Binding DisplayName}"
-                                                   FontSize="14"
-                                                   VerticalAlignment="Center"/>
-                                    </Border>
-                                    <Border IsVisible="{Binding IsMovable}"
-                                            CornerRadius="6,6,0,0"
-                                            BorderThickness="1,1,1,0"
-                                            BorderBrush="{DynamicResource SukiLightBorderBrush}"
-                                            Background="{DynamicResource SukiCardBackground}"
-                                            Padding="12,6"
-                                            Cursor="SizeWestEast"
-                                            PointerPressed="TabHeader_PointerPressed"
-                                            ToolTip.Tip="左右拖动调整顺序">
-                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Disabled">
+                        <ItemsControl x:Name="TabHeaderList" ItemsSource="{Binding TaskOrderList}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="2"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="viewModels:TaskOrderItem">
+                                    <Panel>
+                                        <!-- + 添加按钮 Tab -->
+                                        <Button IsVisible="{Binding IsAddButton}"
+                                                VerticalAlignment="Bottom"
+                                                CornerRadius="6,6,0,0"
+                                                BorderThickness="1,1,1,0"
+                                                BorderBrush="{DynamicResource SukiLightBorderBrush}"
+                                                Background="{DynamicResource SukiCardBackground}"
+                                                Padding="12,6"
+                                                Cursor="Hand"
+                                                ToolTip.Tip="添加自定义任务"
+                                                Command="{Binding $parent[ItemsControl].((viewModels:TaskPageViewModel)DataContext).AddCustomTaskCommand}">
+                                            <TextBlock Text="+"
+                                                       FontSize="14"
+                                                       Opacity="0.5"
+                                                       VerticalAlignment="Center"
+                                                       HorizontalAlignment="Center"/>
+                                        </Button>
+                                        <Border IsVisible="{Binding IsFixedTab}"
+                                                Padding="12,6"
+                                                Cursor="Hand"
+                                                PointerPressed="FixedTabHeader_PointerPressed">
                                             <TextBlock Text="{Binding DisplayName}"
                                                        FontSize="14"
                                                        VerticalAlignment="Center"/>
-                                            <!-- 自定义任务角标 -->
-                                            <Border IsVisible="{Binding IsCustom}"
-                                                    Padding="4,1"
-                                                    CornerRadius="3"
-                                                    Background="{DynamicResource SukiAccentColor}"
-                                                    VerticalAlignment="Center">
-                                                <TextBlock Text="自定"
-                                                           FontSize="10"
-                                                           Foreground="White"
+                                        </Border>
+                                        <Border IsVisible="{Binding IsMovable}"
+                                                CornerRadius="6,6,0,0"
+                                                BorderThickness="1,1,1,0"
+                                                BorderBrush="{DynamicResource SukiLightBorderBrush}"
+                                                Background="{DynamicResource SukiCardBackground}"
+                                                Padding="12,6"
+                                                Cursor="SizeWestEast"
+                                                PointerPressed="TabHeader_PointerPressed"
+                                                ToolTip.Tip="左右拖动调整顺序">
+                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                                <TextBlock Text="{Binding DisplayName}"
+                                                           FontSize="14"
                                                            VerticalAlignment="Center"/>
-                                            </Border>
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Height="3" VerticalAlignment="Bottom"
-                                            Background="{DynamicResource SukiAccentColor}"
-                                            IsVisible="{Binding IsSelected}"
-                                            CornerRadius="2,2,0,0"/>
-                                </Panel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                    <!-- + 紧贴在标签最右侧，和可移动标签样式一致 -->
-                    <Button VerticalAlignment="Bottom"
-                            CornerRadius="6,6,0,0"
-                            BorderThickness="1,1,1,0"
-                            BorderBrush="{DynamicResource SukiLightBorderBrush}"
-                            Background="{DynamicResource SukiCardBackground}"
-                            Padding="10,6"
-                            Cursor="Hand"
-                            ToolTip.Tip="添加自定义任务"
-                            Command="{Binding AddCustomTaskCommand}">
-                        <TextBlock Text="+"
-                                   FontSize="14"
-                                   Opacity="0.5"
-                                   VerticalAlignment="Center"
-                                   HorizontalAlignment="Center"/>
-                    </Button>
-                </StackPanel>
+                                                <!-- 自定义任务角标 -->
+                                                <Border IsVisible="{Binding IsCustom}"
+                                                        Padding="4,1"
+                                                        CornerRadius="3"
+                                                        Background="{DynamicResource SukiAccentColor}"
+                                                        VerticalAlignment="Center">
+                                                    <TextBlock Text="自定"
+                                                               FontSize="10"
+                                                               Foreground="White"
+                                                               VerticalAlignment="Center"/>
+                                                </Border>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Height="3" VerticalAlignment="Bottom"
+                                                Background="{DynamicResource SukiAccentColor}"
+                                                IsVisible="{Binding IsSelected}"
+                                                CornerRadius="2,2,0,0"/>
+                                    </Panel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
             </Border>
 
             <!-- 内容区域 -->

@@ -1,11 +1,9 @@
 import json
-import os
 import threading
 import time
 from io import BytesIO
 
 import PIL
-import pyperclip
 from PIL.Image import Image
 from loguru import logger
 from selenium import webdriver
@@ -14,12 +12,11 @@ from selenium.webdriver import ActionChains, Keys
 from selenium.webdriver.common.actions.action_builder import ActionBuilder
 from selenium.webdriver.common.by import By
 from selenium.webdriver.edge.options import Options
-from selenium.webdriver.edge.service import Service
 from selenium.webdriver.edge.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 
-from SRACore.operators import IOperator
+from SRACore.operators.ioperator import IOperator
 from SRACore.operators.model import Region
 from SRACore.util.const import CacheDir
 from SRACore.util.errors import ThreadStoppedError
@@ -34,6 +31,7 @@ class BrowserOperator(IOperator):
         self.height = 1080
         self.width = 1920
         self.fixed_region = Region(0, 0, 1920, 1080)
+        self.clipboard = None
 
     def launch_browser(self):
         url = "https://sr.mihoyo.com/cloud"
@@ -48,32 +46,19 @@ class BrowserOperator(IOperator):
         self.driver.set_window_size(1936, 1162)  # 1920x1080 + 边框
 
     def login(self, account, password):
-        wait = WebDriverWait(self.driver, 60)
         if not CacheDir.exists():
             CacheDir.mkdir()
         cookies_path = CacheDir / f"{account}_cookies.json"
-        if cookies_path.exists():
-            self.driver.delete_all_cookies()
-            with open(cookies_path, "r") as f:
-                cookies = json.load(f)
-            for cookie in cookies:
-                self.driver.add_cookie(cookie)
-        else:
-            wait.until(expected_conditions.presence_of_element_located((By.TAG_NAME, "iframe")))
-            self.driver.switch_to.frame("mihoyo-login-platform-iframe")
-            login_with_passwd = self.driver.find_element(By.ID, "tab-password")
-            login_with_passwd.click()
-            username = self.driver.find_element(By.ID, "username")
-            passwd = self.driver.find_element(By.ID, "password")
-            username.send_keys(account)
-            passwd.send_keys(password)
-            read_checkbox = self.driver.find_element(By.XPATH, '//*[@id="app"]/div/div/form/label/span[1]')
-            read_checkbox.click()
-            login_button = self.driver.find_element(By.XPATH, '//*[@id="app"]/div/div/form/button')
-            login_button.click()
-            self.driver.switch_to.default_content()
-        wait.until(expected_conditions.presence_of_element_located(
-            (By.XPATH, '//*[@id="app"]/div[1]/div[3]/div[1]/div/div[2]/div[2]')))  # 等待开始游戏按钮出现
+        start_btn_xpath = '//*[@id="app"]/div[1]/div[3]/div[1]/div/div[2]/div[2]'
+
+        logged_in = self._try_cookie_login(cookies_path, start_btn_xpath)
+        if not logged_in:
+            logged_in = self._password_login(account, password, start_btn_xpath)
+
+        if not logged_in:
+            logger.error("登录失败")
+            return -1
+
         self.save_cookies(cookies_path)
         self.load_initial_local_storage()
         try:
@@ -91,6 +76,46 @@ class BrowserOperator(IOperator):
             return 1
         else:
             return -1
+
+    def _try_cookie_login(self, cookies_path, start_btn_xpath) -> bool:
+        if not cookies_path.exists():
+            return False
+        try:
+            self.driver.delete_all_cookies()
+            with open(cookies_path, "r") as f:
+                cookies = json.load(f)
+            for cookie in cookies:
+                self.driver.add_cookie(cookie)
+            self.driver.refresh()
+            WebDriverWait(self.driver, 10).until(
+                expected_conditions.presence_of_element_located((By.XPATH, start_btn_xpath)))
+            logger.info("Cookie 登录成功")
+            return True
+        except Exception as e:
+            logger.warning(f"Cookie 已失效，将使用账号密码重新登录: {e}")
+            cookies_path.unlink(missing_ok=True)
+            self.driver.refresh()
+            return False
+
+    def _password_login(self, account, password, start_btn_xpath) -> bool:
+        logger.info("使用账号密码登录...")
+        try:
+            wait = WebDriverWait(self.driver, 60)
+            wait.until(expected_conditions.presence_of_element_located((By.TAG_NAME, "iframe")))
+            self.driver.switch_to.frame("mihoyo-login-platform-iframe")
+            self.driver.find_element(By.ID, "tab-password").click()
+            username = self.driver.find_element(By.ID, "username")
+            passwd = self.driver.find_element(By.ID, "password")
+            username.send_keys(account)
+            passwd.send_keys(password)
+            self.driver.find_element(By.XPATH, '//*[@id="app"]/div/div/form/label/span[1]').click()
+            self.driver.find_element(By.XPATH, '//*[@id="app"]/div/div/form/button').click()
+            self.driver.switch_to.default_content()
+            wait.until(expected_conditions.presence_of_element_located((By.XPATH, start_btn_xpath)))
+            return True
+        except Exception as e:
+            logger.error(f"账号密码登录失败: {e}")
+            return False
 
     def save_cookies(self, path):
         cookies = self.driver.get_cookies()
@@ -198,6 +223,34 @@ class BrowserOperator(IOperator):
             logger.error(f"等待排队异常: {e}")
         return False
 
+    def change_auto_battle(self, status: bool) -> None:
+        """从 local storage 中读取并修改 auto battle"""
+        ls = json.loads(self.driver.execute_script("return JSON.stringify(localStorage)"))
+        cloud = json.loads(ls.get("cg_hkrpg_cn_cloudData", "{}"))
+        cloud.setdefault("value", {})
+        save = json.loads(cloud["value"].get("RPGCloudSave", "{}") or "{}")
+        int_dicts = save.get("IntDicts", {})
+
+        int_dicts["OtherSettings_AutoBattleOpen"] = int(status)
+        logger.debug(f"设置自动战斗为 {'开启' if status else '关闭'}")
+        int_dicts["OtherSettings_IsSaveBattleSpeed"] = int(status)
+        logger.debug(f"设置自动战斗状态为 {'保存' if status else '不保存'}")
+
+        # 如果存在 App_LastUserID，添加 User_{UID}_SpeedUpOpen 配置
+        uid = int_dicts.get("App_LastUserID")
+        if uid:
+            int_dicts[f"User_{uid}_SpeedUpOpen"] = int(status)
+            logger.debug(f"设置战斗二倍速为 {'开启' if status else '关闭'}")
+        else:
+            logger.debug("未检测到 UID，跳过设置战斗二倍速")
+
+        save["IntDicts"] = int_dicts
+        cloud["value"]["RPGCloudSave"] = json.dumps(save)
+        ls["cg_hkrpg_cn_cloudData"] = json.dumps(cloud)
+
+        for k, v in ls.items():
+            self.driver.execute_script(f"localStorage.setItem('{k}', arguments[0]);", v)
+
     def is_window_active(self) -> bool:
         return True
 
@@ -284,8 +337,11 @@ class BrowserOperator(IOperator):
             logger.debug(f"Failed to hold key: {e}")
             return False
 
+    def copy(self, text: str) -> None:
+        self.clipboard = text
+
     def paste(self) -> None:
-        content = pyperclip.paste()
+        content = self.clipboard
         ActionChains(self.driver).send_keys(content).perform()
 
     def move_rel(self, x_offset: int, y_offset: int) -> bool:
