@@ -140,22 +140,28 @@ class TaskManager:
         config = load_config(config_name)
         if config is None:
             return []
-        print_config = config.copy()
-        print_config["StartGamePassword"] = "******"
-        print_config["StartGameUsername"] = "******"
+        print_config = config.to_dict()
+        print_config["startGame"]["password"] = "******"
+        print_config["StartGame"]["username"] = "******"
         logger.debug('config: ' + str(print_config))
         # 从配置中读取任务选择列表（如 [True, False, True]）
-        task_select = config.get("EnabledTasks")
+        task_select = [config.StartGame.isEnabled,
+                       config.TrailblazePower.isEnabled,
+                       config.ReceiveRewards.isEnabled,
+                       config.CosmicStrife.isEnabled,
+                       config.MissionAccomplished.isEnabled]
         logger.debug('task_select: ' + str(task_select))
         if not task_select:
             return []
         tasks = []
         operator = self.get_operator()
 
-        task_order = config.get("TaskOrder", [])
+        # 自定义任务支持
+        raw_config = config.to_dict() if hasattr(config, 'to_dict') else {}
+        task_order = raw_config.get("TaskOrder", [])
         custom_tasks_map = {
             f"CustomTask_{ct['Id']}": ct
-            for ct in config.get("CustomTasks", [])
+            for ct in raw_config.get("CustomTasks", [])
             if ct.get("IsEnabled", False)
         }
 
@@ -165,7 +171,7 @@ class TaskManager:
                 if task_name in custom_tasks_map:
                     ct = custom_tasks_map[task_name]
                     try:
-                        task_instance = self._load_custom_task(ct, operator, config)
+                        task_instance = self._load_custom_task(ct, operator, raw_config)
                         if task_instance:
                             tasks.append(task_instance)
                     except Exception as e:
@@ -187,26 +193,21 @@ class TaskManager:
         return tasks
 
     def _load_custom_task(self, ct: dict, operator, config: dict):
-        """加载并实例化自定义脚本任务"""
         script_id = ct.get("ScriptId", "")
         task_entry = ct.get("TaskEntry", "main.py")
         task_class_name = ct.get("TaskClassName", "")
         params = ct.get("Params", {})
-
         scripts_dir = AppDataDir / "scripts"
         script_dir = scripts_dir / script_id
         entry_path = script_dir / task_entry
-
         if not entry_path.exists():
-            logger.error(f"自定义任务脚本文件不存在：{entry_path}")
+            logger.error(f"自定义任务脚本不存在：{entry_path}")
             return None
-
         module_name = f"_sra_script_{script_id}_{task_entry.replace('.py', '')}"
         if str(script_dir) not in sys.path:
             sys.path.insert(0, str(script_dir))
         if str(scripts_dir) not in sys.path:
             sys.path.insert(0, str(scripts_dir))
-
         try:
             spec = importlib.util.spec_from_file_location(module_name, entry_path)
             module = importlib.util.module_from_spec(spec)
@@ -215,7 +216,6 @@ class TaskManager:
         except Exception as e:
             logger.error(f"加载自定义任务 {task_class_name} 失败：{e}")
             return None
-
         task_config = dict(config)
         task_config['_task_params'] = params
         task_config['_task_name'] = ct.get("Name", script_id)
@@ -276,25 +276,18 @@ class TaskManager:
     def get_task(self, config_name: str, task: str) -> BaseTask | None:
         """
         根据配置名称和任务索引或名称获取单个任务实例。
-        支持自定义脚本任务（task 形如 CustomTask_xxx）。
+
+        Args:
+            config_name (str): 配置名称
+            task ( str): 任务索引或任务类名称（str）
+
+        Returns:
+            BaseTask: 任务实例
+
+        Raises:
+            ValueError: 如果任务未找到或配置加载失败
         """
-        config = load_config(config_name)
-        if config is None:
-            return None
-
-        operator = self.get_operator()
-
-        if task.startswith("CustomTask_"):
-            custom_id = task[len("CustomTask_"):]
-            ct = next(
-                (c for c in config.get("CustomTasks", []) if c.get("Id") == custom_id),
-                None
-            )
-            if ct is None:
-                logger.error(f"未找到自定义任务：{task}")
-                return None
-            return self._load_custom_task(ct, operator, config)
-
+        # 根据参数类型获取任务类
         task_class = None
         if task.isdecimal():
             index = int(task)
@@ -310,6 +303,16 @@ class TaskManager:
         if task_class is None:
             return None
         try:
+            # 加载指定配置
+            config = load_config(config_name)
+            if config is None:
+                return None
+            print_config = config.to_dict()
+            print_config["startGame"]["password"] = "******"
+            print_config["startGame"]["username"] = "******"
+            logger.debug('config: ' + str(print_config))
+            # 实例化任务类
+            operator = self.get_operator()
             return task_class(operator, config)
         except Exception as e:
             logger.error(Resource.task_instantiateFailed(task, f'{e.__class__.__name__}: {e}'))

@@ -84,7 +84,15 @@ public partial class TaskPageViewModel : PageViewModel
     private readonly ConfigService _configService;
     private readonly CommonModel _commonModel;
 
-    [ObservableProperty] private Config _currentConfig;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CosmicStrifeConfig), nameof(MissionAccomplishedConfig), nameof(ReceiveRewardsConfig), nameof(StartGameConfig), nameof(TrailblazePowerConfig))]
+    private TasksConfig _currentConfig;
+
+    public CosmicStrifeConfig CosmicStrifeConfig => CurrentConfig.CosmicStrife;
+    public MissionAccomplishedConfig MissionAccomplishedConfig => CurrentConfig.MissionAccomplished;
+    public ReceiveRewardsConfig ReceiveRewardsConfig => CurrentConfig.ReceiveRewards;
+    public StartGameConfig StartGameConfig => CurrentConfig.StartGame;
+    public TrailblazePowerConfig TrailblazePowerConfig => CurrentConfig.TrailblazePower;
 
     [ObservableProperty] private AvaloniaList<TaskOrderItem> _taskOrderList = [];
 
@@ -93,12 +101,12 @@ public partial class TaskPageViewModel : PageViewModel
 
     public int CurrencyWarsStrategyIndex
     {
-        get => CurrentConfig.CurrencyWarsStrategyIndex;
+        get => CosmicStrifeConfig?.CurrencyWarsStrategyIndex ?? 0;
         set
         {
-            CurrentConfig.CurrencyWarsStrategyIndex = value;
+            CosmicStrifeConfig.CurrencyWarsStrategyIndex = value;
             OnPropertyChanged();
-            CurrentConfig.CurrencyWarsStrategy = Cache.Strategies.ElementAtOrDefault(value)?.FileName ?? "";
+            CosmicStrifeConfig.CurrencyWarsStrategy = Cache.Strategies.ElementAtOrDefault(value)?.FileName ?? "";
         }
     }
 
@@ -117,13 +125,13 @@ public partial class TaskPageViewModel : PageViewModel
         _commonModel = commonModel;
         _configService = configService;
         _cacheService = cacheService;
-        CurrentConfig = _configService.Config!;
+        CurrentConfig = _configService.TaskConfig!;
 
         void OnCachePropertyChanged(object? _, PropertyChangedEventArgs args)
         {
             if (args.PropertyName != nameof(Cache.CurrentConfigIndex)) return;
             _configService.SwitchConfig(_cacheService.Cache.ConfigNames[_cacheService.Cache.CurrentConfigIndex]);
-            CurrentConfig = _configService.Config!;
+            CurrentConfig = _configService.TaskConfig!;
             InitTaskOrderList();
         }
 
@@ -200,7 +208,7 @@ public partial class TaskPageViewModel : PageViewModel
             middleItems = middleDefs.Select((d, i) =>
             {
                 int origIdx = AllTaskDefs.FindIndex(x => x.ClassName == d.ClassName);
-                bool enabled = origIdx >= 0 && origIdx < CurrentConfig.EnabledTasks.Length && CurrentConfig.EnabledTasks[origIdx];
+                bool enabled = origIdx >= 0 && origIdx < CurrentConfig.EnabledTasks.Count && CurrentConfig.EnabledTasks[origIdx];
                 return (d.ClassName, d.DisplayName, enabled);
             }).ToList();
         }
@@ -208,7 +216,7 @@ public partial class TaskPageViewModel : PageViewModel
         // 首位固定任务（启动游戏）
         bool firstEnabled = CurrentConfig.TaskOrder.Count > 0
             ? CurrentConfig.TaskOrder.Contains(FixedFirstTask)
-            : (0 < CurrentConfig.EnabledTasks.Length && CurrentConfig.EnabledTasks[0]);
+            : (0 < CurrentConfig.EnabledTasks.Count && CurrentConfig.EnabledTasks[0]);
         TaskOrderList.Add(new TaskOrderItem { ClassName = firstDef.ClassName, DisplayName = firstDef.DisplayName, IsEnabled = firstEnabled, IsFixed = true, OriginalIndex = AllTaskDefs.FindIndex(d => d.ClassName == firstDef.ClassName) });
 
         // 中间可移动任务
@@ -234,7 +242,7 @@ public partial class TaskPageViewModel : PageViewModel
         // 末位固定任务（任务完成）
         bool lastEnabled = CurrentConfig.TaskOrder.Count > 0
             ? CurrentConfig.TaskOrder.Contains(FixedLastTask)
-            : (4 < CurrentConfig.EnabledTasks.Length && CurrentConfig.EnabledTasks[4]);
+            : (4 < CurrentConfig.EnabledTasks.Count && CurrentConfig.EnabledTasks[4]);
         TaskOrderList.Add(new TaskOrderItem { ClassName = lastDef.ClassName, DisplayName = lastDef.DisplayName, IsEnabled = lastEnabled, IsFixed = true, OriginalIndex = AllTaskDefs.FindIndex(d => d.ClassName == lastDef.ClassName) });
         // 末尾追加「+」占位 Tab
         TaskOrderList.Add(new TaskOrderItem { ClassName = "__add__", DisplayName = "+", IsFixed = true, IsAddButton = true });
@@ -258,8 +266,7 @@ public partial class TaskPageViewModel : PageViewModel
             SelectTask(TaskOrderList[0].ClassName);
 
         // 监听自定义任务集合变化，保持标签栏同步
-        CurrentConfig.CustomTasks.CollectionChanged += (_, _) => SyncCustomTaskLabels();
-
+        
     }
 
     /// <summary>根据 ClassName 获取 TaskOrderItem（供各 TaskView 绑定使用）</summary>
@@ -362,7 +369,7 @@ public partial class TaskPageViewModel : PageViewModel
                     if (SelectedCustomTask.Params == null)
                         SelectedCustomTask.Params = new System.Collections.Generic.Dictionary<string, string>();
                     SelectedCustomTask.Params[key] = val;
-                    _configService.SaveConfig();
+                    _configService.Save();
                 });
             ScriptParams.Add(vm);
         }
@@ -379,7 +386,7 @@ public partial class TaskPageViewModel : PageViewModel
         if (SelectedCustomTask.Params == null)
             SelectedCustomTask.Params = new System.Collections.Generic.Dictionary<string, string>();
         SelectedCustomTask.Params[key] = value;
-        _configService.SaveConfig();
+        _configService.Save();
     }
 
     /// <summary>获取当前任务的参数值（供 UI 绑定用）</summary>
@@ -575,9 +582,9 @@ public partial class TaskPageViewModel : PageViewModel
             OriginalIndex = -1
         };
         newItem.PropertyChanged += (_, _) => SyncTaskOrderToConfig();
-        // 插入到「+」Tab 前面
-        var addBtnIdx = TaskOrderList.IndexOf(TaskOrderList.FirstOrDefault(t => t.IsAddButton)!);
-        var insertPos = addBtnIdx >= 0 ? addBtnIdx : insertIdx;
+        // 插入到「任务完成」固定任务之前（确保启动游戏在最前，任务完成在最后）
+        var lastFixedItem = TaskOrderList.FirstOrDefault(t => t.ClassName == FixedLastTask);
+        var insertPos = lastFixedItem != null ? TaskOrderList.IndexOf(lastFixedItem) : TaskOrderList.Count;
         TaskOrderList.Insert(insertPos, newItem);
         SyncTaskOrderToConfig();
         SelectTask(className);
@@ -827,15 +834,15 @@ public partial class TaskPageViewModel : PageViewModel
 
     public int CurrencyWarsModeIndex
     {
-        get => CurrentConfig.CurrencyWarsMode;
+        get => CurrentConfig.CosmicStrife.CurrencyWarsMode;
         set
         {
-            CurrentConfig.CurrencyWarsMode = value;
+            CurrentConfig.CosmicStrife.CurrencyWarsMode = value;
             OnPropertyChanged(nameof(IsCwNormalMode));
         }
     }
 
-    public bool IsCwNormalMode => CurrentConfig.CurrencyWarsMode != 2;
+    public bool IsCwNormalMode => CurrentConfig.CosmicStrife.CurrencyWarsMode != 2;
 
     public Cache Cache => _cacheService.Cache;
 
@@ -875,13 +882,13 @@ public partial class TaskPageViewModel : PageViewModel
         if (TopLevelObject is null) return;
         var files = await TopLevelObject.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions());
         if (files.Count == 0) return;
-        CurrentConfig.StartGamePath = files[0].Path.LocalPath;
+        CurrentConfig.StartGame.GamePath = files[0].Path.LocalPath;
     }
 
     [RelayCommand]
     private void DeleteSelectedTaskItem()
     {
-        if (SelectedTaskItem is TrailblazePowerTaskItem item) CurrentConfig.TrailblazePowerTaskList.Remove(item);
+        if (SelectedTaskItem is TrailblazePowerTaskItem item) CurrentConfig.TrailblazePower.TaskList.Remove(item);
     }
 
     private void AddTaskItem(TrailblazePowerTask task)
@@ -892,7 +899,7 @@ public partial class TaskPageViewModel : PageViewModel
             return;
         }
 
-        CurrentConfig.TrailblazePowerTaskList.Add(new TrailblazePowerTaskItem
+        CurrentConfig.TrailblazePower.TaskList.Add(new TrailblazePowerTaskItem
         {
             Name = task.Title,
             Id = task.Id,

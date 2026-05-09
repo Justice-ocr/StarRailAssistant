@@ -1,11 +1,12 @@
-from abc import ABC, abstractmethod
 import importlib
-from typing import Any, final
+from abc import ABC, abstractmethod
+from typing import final
 
 from loguru import logger
 
 from SRACore.localization import Resource
-from SRACore.operators import IOperator
+from SRACore.models.tasks_config import TasksConfig
+from SRACore.operators.ioperator import IOperator
 from SRACore.util import notify
 
 
@@ -21,7 +22,7 @@ class Executable:
 
 
 class BaseTask(Executable, ABC):
-    def __init__(self, operator: IOperator, config: dict[str, Any]):
+    def __init__(self, operator: IOperator, config: TasksConfig):
         """
         基础任务类，所有任务类都应继承自此类。
         """
@@ -35,7 +36,7 @@ class BaseTask(Executable, ABC):
 
     def get_param(self, key: str, default=None):
         """获取自定义任务参数，从 config['_task_params'] 里取值"""
-        params = self.config.get('_task_params', {})
+        params = self.config.get('_task_params', {}) if isinstance(self.config, dict) else {}
         return params.get(key, default)
 
     @final

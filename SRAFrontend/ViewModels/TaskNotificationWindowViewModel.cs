@@ -56,7 +56,7 @@ public partial class TaskNotificationWindowViewModel : ObservableObject
         }
 
         // 自定义任务（从当前配置读取）
-        var customTasks = configService.Config?.CustomTasks ?? [];
+        var customTasks = configService.TaskConfig?.CustomTasks ?? [];
         foreach (var ct in customTasks)
         {
             if (!ct.IsEnabled) continue;
