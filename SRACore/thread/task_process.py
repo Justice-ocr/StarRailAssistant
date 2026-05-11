@@ -219,7 +219,10 @@ class TaskManager:
         task_config = dict(config)
         task_config['_task_params'] = params
         task_config['_task_name'] = ct.get("Name", script_id)
-        return task_class(operator, task_config)
+        task_instance = task_class(operator, task_config)
+        # 设置自定义任务key，供on_start/on_finish通知匹配使用
+        task_instance._sra_task_key = f"CustomTask_{ct.get('Id', '')}"
+        return task_instance
 
     def run_task(self, task: int | str, config_name: str | None = None) -> bool:
         """
@@ -287,6 +290,29 @@ class TaskManager:
         Raises:
             ValueError: 如果任务未找到或配置加载失败
         """
+        # 加载指定配置
+        config = load_config(config_name)
+        if config is None:
+            return None
+        raw_config = config.to_dict() if hasattr(config, 'to_dict') else {}
+        print_config = config.to_dict()
+        print_config["startGame"]["password"] = "******"
+        print_config["startGame"]["username"] = "******"
+        logger.debug('config: ' + str(print_config))
+        operator = self.get_operator()
+
+        # 自定义任务
+        if task.startswith("CustomTask_"):
+            custom_tasks_map = {
+                f"CustomTask_{ct['Id']}": ct
+                for ct in raw_config.get("CustomTasks", [])
+            }
+            ct = custom_tasks_map.get(task)
+            if ct is None:
+                logger.error(f"未找到自定义任务：{task}")
+                return None
+            return self._load_custom_task(ct, operator, raw_config)
+
         # 根据参数类型获取任务类
         task_class = None
         if task.isdecimal():
@@ -303,16 +329,6 @@ class TaskManager:
         if task_class is None:
             return None
         try:
-            # 加载指定配置
-            config = load_config(config_name)
-            if config is None:
-                return None
-            print_config = config.to_dict()
-            print_config["startGame"]["password"] = "******"
-            print_config["startGame"]["username"] = "******"
-            logger.debug('config: ' + str(print_config))
-            # 实例化任务类
-            operator = self.get_operator()
             return task_class(operator, config)
         except Exception as e:
             logger.error(Resource.task_instantiateFailed(task, f'{e.__class__.__name__}: {e}'))

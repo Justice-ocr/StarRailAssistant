@@ -63,15 +63,19 @@ class BaseTask(Executable, ABC):
             operator=self.operator
         )
 
+    def _task_notify_key(self) -> str:
+        """通知匹配用的key，自定义任务用CustomTask_{id}，内置任务用类名"""
+        return getattr(self, "_sra_task_key", self.__class__.__name__)
+
     def on_start(self) -> None:
         on_start = self.settings.Notification.onStart
-        if self.__class__.__name__ in on_start:
-            self.send_notification(f"任务 {self.__class__.__name__} 开始执行。", "success")
+        if self._task_notify_key() in on_start:
+            self.send_notification(f"任务 {self._task_notify_key()} 开始执行。", "success")
 
     def on_finish(self) -> None:
         on_complete = self.settings.Notification.onComplete
-        if self.__class__.__name__ in on_complete:
-            self.send_notification(f"任务 {self.__class__.__name__} 执行完成。", "success")
+        if self._task_notify_key() in on_complete:
+            self.send_notification(f"任务 {self._task_notify_key()} 执行完成。", "success")
 
     def on_failure(self) -> None:
         if self.operator.width != 1920 and self.operator.height != 1080:
