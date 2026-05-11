@@ -302,14 +302,14 @@ class SRACli(cmd.Cmd):
                 send_discord_notification,
                 send_xxtui_notification,
             )
-            settings = load_settings("notifications")
+            settings = load_settings("notification")
             data = _build_notification_data("notify.test", "这是一条测试通知", "success")
 
             # 支持图片的渠道：若开关开启则用 SRA 图标替代截图
             _send_image_keys = {
                 "telegram": "telegram.sendImage",
-                "onebot":   "onebot.sendImage",
-                "wecom":    "wecom.sendImage",
+                "onebot":   "oneBot.sendImage",
+                "wecom":    "weCom.sendImage",
                 "discord":  "discord.sendImage",
             }
             _orig_bytes  = _notify_mod._take_screenshot_bytes
