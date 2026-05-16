@@ -25,6 +25,7 @@ class SRAIMG:
 # region 通用
 class IMG:
     BASE = "resources/img"
+    ACTIVITY = f"{BASE}/activity.png"
     COSMIC_STRIFE = f"{BASE}/cosmic_strife.png"
     DIALOG = f"{BASE}/dialog.png"
     ENTER = f"{BASE}/enter.png"
@@ -207,6 +208,12 @@ class DUIMG:
     ENSURE = f"{BASE}/ensure.png"
     ENSURE2 = f"{BASE}/ensure2.png"
     SELECT_GRAND_MIRACLE = f"{BASE}/select_grand_miracle.png"
+    # differential_universe 子模式专用
+    DIFF_BASE = "resources/img/divergent_universe/differential_universe"
+    DIFFERENTIAL_UNIVERSE = f"{DIFF_BASE}/differential_universe.png"
+    DIFFERENTIAL_UNIVERSE_START = f"{DIFF_BASE}/differential_universe_start.png"
+    DIFFERENTIAL_UNIVERSE_QUIT = f"{DIFF_BASE}/differential_universe_quit.png"
+    LAUNCH_DIFFERENTIAL_UNIVERSE = f"{DIFF_BASE}/launch_differential_universe.png"
 # endregion
 
 # region 任务完成专用

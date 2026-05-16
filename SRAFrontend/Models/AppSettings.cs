@@ -22,7 +22,7 @@ public class AppSettings
     [JsonPropertyName("notification")]
     public NotificationSettings Notification { get; init; } = new();
     
-    public const string Version = "2.14.0-beta.4"; // 应用版本号
+    public const string Version = "2.14.1"; // 应用版本号
 }
 
 public partial class GeneralSettings : ObservableObject
@@ -387,6 +387,10 @@ public partial class AdvancedSettings : ObservableObject
     [ObservableProperty]
     [property: JsonPropertyName("backend.usePython")]
     private bool _isBackendUsePython = false;
+    
+    [ObservableProperty]
+    [property: JsonPropertyName("python.pipIndex")]
+    private string _pythonPipIndex = "";
 
     [ObservableProperty]
     [property: JsonPropertyName("developerMode.enabled")]

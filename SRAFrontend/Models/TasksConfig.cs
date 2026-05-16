@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -19,7 +19,6 @@ public class TasksConfig
     [JsonPropertyName("version")] public int Version { get; init; } = StaticVersion;
     public static int StaticVersion => 4;
 
-    // fork: 自定义任务排序和自定义任务列表
     [JsonPropertyName("taskOrder")] public List<string> TaskOrder { get; set; } = [];
     [JsonPropertyName("customTasks")] public List<CustomTaskEntry> CustomTasks { get; set; } = [];
     [JsonPropertyName("enabledTasks")] public List<bool> EnabledTasks { get; set; } = [true, false, false, false, false];
@@ -80,6 +79,22 @@ public partial class TrailblazePowerConfig : ObservableObject
 
     [JsonPropertyName("tasklist")]
     public ObservableCollection<TrailblazePowerTaskItem> TaskList { get; init; } = [];
+    
+    [ObservableProperty] [property: JsonPropertyName("activity.enabled")]
+    private bool _isActivityEnabled;
+    
+    [ObservableProperty] [property: JsonPropertyName("activity.gardenOfPlenty.level1")]
+    private int _gardenOfPlentyLevel1;
+    
+    [ObservableProperty] [property: JsonPropertyName("activity.gardenOfPlenty.level2")]
+    private int _gardenOfPlentyLevel2;
+    
+    [ObservableProperty] [property: JsonPropertyName("activity.planarFissure.level")]
+    private int _planarFissureLevel;
+    
+    [ObservableProperty] [property: JsonPropertyName("activity.realmOfTheStrange.level")]
+    private int _realmOfTheStrangeLevel;
+
 }
 
 public partial class ReceiveRewardsConfig : ObservableObject

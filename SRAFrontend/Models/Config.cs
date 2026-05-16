@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using Avalonia.Collections;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -13,13 +13,7 @@ public partial class Config : ObservableObject
     [ObservableProperty] private bool _afterLogout; // 任务完成后是否登出
     [ObservableProperty] private bool _afterShutdown; // 任务完成后关机
     [ObservableProperty] private bool _afterSleep; // 任务完成后睡眠
-    [ObservableProperty] private bool[] _enabledTasks = [true, false, false, false, false]; // 各任务启用状态（旧格式，保留向后兼容）
-
-    // 新格式：任务类名有序列表，优先于 EnabledTasks 使用
-    [ObservableProperty] private AvaloniaList<string> _taskOrder = [];
-
-    // 自定义任务列表
-    [ObservableProperty] private AvaloniaList<CustomTaskEntry> _customTasks = [];
+    [ObservableProperty] private bool[] _enabledTasks = [true, false, false, false, false]; // 各任务启用状态
 
     [ObservableProperty] private string _name = "Default"; // 配置名称，默认为 "Default"
     [ObservableProperty] private string _receiveRewardRedeemCodes = ""; // 兑换码列表
@@ -47,6 +41,7 @@ public partial class Config : ObservableObject
     [ObservableProperty] private string _cwRsInvestStrategies = ""; // 刷开局 - 期望投资策略，空格分隔
     [ObservableProperty] private string _cwRsBossNames = ""; // 刷开局 - 期望Boss名称，分号分隔，按第一位面;第二位面;第三位面填写
     [ObservableProperty] private string _cwRsBossAffixes = ""; // 刷开局 - 期望Boss词条，空格分隔
+    [ObservableProperty] private int _cwRsInvestStrategyStage = 1; // 刷开局 - 期望投资策略阶段
     [ObservableProperty] private int _cwRsMaxRetry = 1; // 刷开局 - 最大尝试轮数
 
     [ObservableProperty] private bool _startGameAlwaysLogin; // 游戏启动时是否总是登录

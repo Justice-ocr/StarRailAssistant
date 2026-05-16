@@ -18,8 +18,6 @@ class TasksConfig:
     CosmicStrife: CosmicStrifeConfig = None
     MissionAccomplished: MissionAccomplishedConfig = None
     Version: int = 0
-    TaskOrder: list = field(default_factory=list)
-    CustomTasks: list = field(default_factory=list)
 
     def to_dict(self) -> dict:
         """转换为字典"""
@@ -30,9 +28,7 @@ class TasksConfig:
             "receiveRewards": self.ReceiveRewards.to_dict(),
             "cosmicStrife": self.CosmicStrife.to_dict(),
             "missionAccomplished": self.MissionAccomplished.to_dict(),
-            "version": self.Version,
-            "TaskOrder": self.TaskOrder,
-            "CustomTasks": self.CustomTasks,
+            "version": self.Version
         }
 
     @classmethod
@@ -45,9 +41,7 @@ class TasksConfig:
             "ReceiveRewards": ReceiveRewardsConfig.from_dict(data.get("receiveRewards", {})),
             "CosmicStrife": CosmicStrifeConfig.from_dict(data.get("cosmicStrife", {})),
             "MissionAccomplished": MissionAccomplishedConfig.from_dict(data.get("missionAccomplished", {})),
-            "Version": data.get("version", 0),
-            "TaskOrder": data.get("taskOrder", data.get("TaskOrder", [])),
-            "CustomTasks": data.get("customTasks", data.get("CustomTasks", [])),
+            "Version": data.get("version", 0)
         })
 
 @dataclass
@@ -101,6 +95,13 @@ class TrailblazePowerConfig:
     isUseAssistant: bool = False
     isUseBuildTarget: bool = False
     TaskList: list[TrailblazePowerTaskItem] = field(default_factory=list)
+    isActivityEnabled: bool = False
+    gardenOfPlentyLevel1: int = 0
+    gardenOfPlentyLevel2: int = 0
+    planarFissureLevel: int = 0
+    realmOfTheStrangeLevel: int = 0
+    TaskOrder: list = field(default_factory=list)
+    CustomTasks: list = field(default_factory=list)
 
     def to_dict(self) -> dict:
         """转换为字典"""
@@ -111,7 +112,14 @@ class TrailblazePowerConfig:
             "replenish.way": self.replenishWay,
             "useAssistant": self.isUseAssistant,
             "useBuildTarget": self.isUseBuildTarget,
-            "tasklist": self.TaskList
+            "tasklist": self.TaskList,
+            "activity.enabled": self.isActivityEnabled,
+            "activity.gardenOfPlenty.level1": self.gardenOfPlentyLevel1,
+            "activity.gardenOfPlenty.level2": self.gardenOfPlentyLevel2,
+            "activity.planarFissure.level": self.planarFissureLevel,
+            "activity.realmOfTheStrange.level": self.realmOfTheStrangeLevel,
+            "TaskOrder": self.TaskOrder,
+            "CustomTasks": self.CustomTasks,
         }
 
     @classmethod
@@ -124,7 +132,14 @@ class TrailblazePowerConfig:
             "replenishWay": data.get("replenish.way", 0),
             "isUseAssistant": data.get("useAssistant", False),
             "isUseBuildTarget": data.get("useBuildTarget", False),
-            "TaskList": data.get("tasklist", list())
+            "TaskList": [TrailblazePowerTaskItem.from_dict(item) for item in data.get("tasklist", list())],
+            "isActivityEnabled": data.get("activity.enabled", False),
+            "gardenOfPlentyLevel1": data.get("activity.gardenOfPlenty.level1", 0),
+            "gardenOfPlentyLevel2": data.get("activity.gardenOfPlenty.level2", 0),
+            "planarFissureLevel": data.get("activity.planarFissure.level", 0),
+            "realmOfTheStrangeLevel": data.get("activity.realmOfTheStrange.level", 0),
+            "TaskOrder": data.get("taskOrder", data.get("TaskOrder", [])),
+            "CustomTasks": data.get("customTasks", data.get("CustomTasks", [])),
         })
 
 @dataclass

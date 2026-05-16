@@ -33,7 +33,7 @@ public class SettingsService(ILogger<SettingsService> logger)
         var settingsJson = File.ReadAllText(PathString.SettingsJson);
         try
         {
-            if (!settingsJson.Contains("\"notification\""))  // 旧格式没有notification子对象
+            if (settingsJson.Contains("EmailAuthCode"))  // 旧格式标志字段
             {
                 _logger.LogInformation("Migrating from old settings format...");
                 Settings = SettingsMigrator.MigrateOldToNew(JsonSerializer.Deserialize<Settings>(settingsJson, _jsonSerializerOptions)!);
