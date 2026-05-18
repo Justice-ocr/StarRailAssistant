@@ -22,7 +22,7 @@ public class AppSettings
     [JsonPropertyName("notification")]
     public NotificationSettings Notification { get; init; } = new();
     
-    public const string Version = "2.14.1"; // 应用版本号
+    public const string Version = "2.14.2"; // 应用版本号
 }
 
 public partial class GeneralSettings : ObservableObject
@@ -385,30 +385,26 @@ public partial class AdvancedSettings : ObservableObject
     private string _backendLaunchArgs = "--inline";
     
     [ObservableProperty]
-    [property: JsonPropertyName("backend.usePython")]
-    private bool _isBackendUsePython = false;
-    
-    [ObservableProperty]
-    [property: JsonPropertyName("python.pipIndex")]
-    private string _pythonPipIndex = "";
-
-    [ObservableProperty]
     [property: JsonPropertyName("developerMode.enabled")]
     private bool _isDeveloperModeEnabled;
-    
+
     [ObservableProperty]
     [property: JsonPropertyName("developerMode.saveOcrImage")]
     private bool _isSaveOcrImage;
-    
+
     [ObservableProperty]
     [property: JsonPropertyName("developerMode.overlay")]
     private bool _isDebugOverlayEnabled;
 
     [ObservableProperty]
-    [property: JsonPropertyName("developerMode.pythonPath")]
+    [property: JsonPropertyName("developerMode.python.enabled")]
+    private bool _isPythonEnabled;
+
+    [ObservableProperty]
+    [property: JsonPropertyName("developerMode.python.path")]
     private string _pythonPath = "";
 
     [ObservableProperty]
-    [property: JsonPropertyName("developerMode.pythonMain")]
+    [property: JsonPropertyName("developerMode.python.main")]
     private string _pythonMain = "";
 }

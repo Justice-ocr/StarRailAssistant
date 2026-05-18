@@ -28,13 +28,16 @@ import subprocess
 import sys
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
+from urllib.request import urlopen
 
 ROOT_PATH = Path(__file__).resolve().parent.parent
 WIN_X64_PUBLISH_PATH = ROOT_PATH / "SRAFrontend" / "bin" / "Release" / "net10.0" / "win-x64" / "publish"
 DIST_DIR = ROOT_PATH / "main.dist"
+PYTHON31210_URL = "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip"
+GET_PIP_URL = "https://bootstrap.pypa.io/get-pip.py"
 
 
-def add_to_zip(zipf: ZipFile, path: Path, base_path: Path = None):
+def add_to_zip(zipf: ZipFile, path: Path, base_path: Path | None = None):
     if base_path is None:
         base_path = path.parent
     if not path.exists():
@@ -81,16 +84,42 @@ def nuitka_build(version: str):
     print("[OK] Python program built successfully")
 
 
+def embed_python():
+    print("Embedding Python ...")
+    from io import BytesIO
+
+    Path.mkdir(DIST_DIR, parents=True, exist_ok=True)
+    print("Downing Python embedded package ...")
+    with urlopen(PYTHON31210_URL) as response:
+        with ZipFile(BytesIO(response.read())) as zipf:
+            zipf.extractall(DIST_DIR / "python")
+    print("Enabling site...")
+    with open(DIST_DIR / "python" / "python312._pth", "w", encoding="utf-8") as file:
+        file.write("python312.zip\n.\n\n# Uncomment to run site.main() automatically\nimport site\n")
+    print("Downing get-pip.py")
+    with urlopen(GET_PIP_URL) as response:
+        with open("get-pip.py", "wb") as file:
+            file.write(response.read())
+    print("Installing pip...")
+    subprocess.run([DIST_DIR / "python" / "python.exe", "get-pip.py"], check=True)
+    subprocess.run([DIST_DIR / "python" / "python.exe", "-m", "pip", "install", "--upgrade", "pip"], check=True)
+    print("Installing dependencies ...")
+    subprocess.run([DIST_DIR / "python" / "python.exe", "-m", "pip", "install", "setuptools", "wheel"], check=True)
+    subprocess.run([DIST_DIR / "python" / "python.exe", "-m", "pip", "install", "-r", "requirements.txt"], check=True)
+    print("[OK]")
+
 def copy_core_resources(dist: Path):
     print("Copying resources ...")
     dist.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT_PATH / "LICENSE", dist / "LICENSE")
     shutil.copy2(ROOT_PATH / "README.md", dist / "README.md")
-    shutil.copy2(ROOT_PATH / "requirements.txt", dist / "requirements.txt")
-    shutil.copy2(ROOT_PATH / "requirements-win.txt", dist / "requirements-win.txt")
-    shutil.copy2(ROOT_PATH / "requirements-linux.txt", dist / "requirements-linux.txt")
-    shutil.copy2(ROOT_PATH / "main.py", dist / "main.py")
-    shutil.copytree(ROOT_PATH / "SRACore", dist / "SRACore", dirs_exist_ok=True)
+    # shutil.copy2(ROOT_PATH / "requirements.txt", dist / "requirements.txt")
+    # shutil.copy2(ROOT_PATH / "requirements-linux.txt", dist / "requirements-linux.txt")
+    # shutil.copy2(ROOT_PATH / "main.py", dist / "main.py")
+    # shutil.copytree(ROOT_PATH / "SRACore", dist / "SRACore", dirs_exist_ok=True)
+    (DIST_DIR / "SRACore" / "localization").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT_PATH / "SRACore" / "localization" / "resource_en-us.json", DIST_DIR / "SRACore" / "localization" / "resource_en-us.json")
+    shutil.copy2(ROOT_PATH / "SRACore" / "localization" / "resource_zh-cn.json", DIST_DIR / "SRACore" / "localization" / "resource_zh-cn.json")
     shutil.copytree(ROOT_PATH / "resources", dist / "resources")
     shutil.copytree(ROOT_PATH / "rapidocr_onnxruntime", dist / "rapidocr_onnxruntime")
     shutil.copytree(ROOT_PATH / "tasks", dist / "tasks")
@@ -106,17 +135,6 @@ def package_core(version: str):
     print(f"[OK] Core package: {core_zip_path.name}")
 
 
-def package_code(version: str):
-    print("Packaging Code ...")
-    code_zip_path = ROOT_PATH / f"StarRailAssistant_Code_v{version}.zip"
-    with ZipFile(code_zip_path, "w", compression=ZIP_DEFLATED) as zipf:
-        for item in ["SRACore", "tasks", "resources"]:
-            add_to_zip(zipf, ROOT_PATH / item)
-        for file in ["main.py", "README.md", "LICENSE", "requirements.txt", "requirements-win.txt", "requirements-linux.txt"]:
-            add_to_zip(zipf, ROOT_PATH / file)
-    print(f"[OK] Code package: {code_zip_path.name}")
-
-
 def package_lite(version: str):
     print("Packaging Lite ...")
     lite_zip_path = ROOT_PATH / f"StarRailAssistant_Lite_v{version}.zip"
@@ -125,7 +143,7 @@ def package_lite(version: str):
             add_to_zip(zipf, file)
         for item in ["SRACore", "tasks", "resources"]:
             add_to_zip(zipf, ROOT_PATH / item)
-        for file in ["main.py", "README.md", "LICENSE", "requirements.txt", "requirements-win.txt", "requirements-linux.txt"]:
+        for file in ["main.py", "README.md", "LICENSE", "requirements.txt", "requirements-linux.txt"]:
             add_to_zip(zipf, ROOT_PATH / file)
     print(f"[OK] Lite package: {lite_zip_path.name}")
 
@@ -149,10 +167,10 @@ if __name__ == "__main__":
         changelog = f.read()
 
     nuitka_build(version)
+    # embed_python()
     copy_core_resources(DIST_DIR)
 
     package_core(version)
-    package_code(version)
     package_lite(version)
     package_full(version)
 
