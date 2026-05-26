@@ -1,22 +1,22 @@
 import importlib
-import importlib
-import importlib.util
 import sys
 import threading
 from typing import Any
 
 from SRACore.localization import Resource
 from SRACore.models.app_settings import AppSettings
-from SRACore.operators.ioperator import IOperator
-from SRACore.task import BaseTask, get_tasks
-from SRACore.util import (
-    encryption,  # NOQA 有动态用法，确保被打包 # type: ignore
-    notify,
-    sys_util,  # NOQA 有动态用法，确保被打包 # type: ignore
-)
+from SRACore.notification import try_send_notification
+import importlib
+import importlib.util
 from pathlib import Path
 from SRACore.models.app_settings import AppSettings
 from SRACore.util.const import AppDataDir
+from SRACore.operators.ioperator import IOperator
+from SRACore.task import BaseTask, get_task_classes
+from SRACore.util import (
+    encryption,  # NOQA 有动态用法，确保被打包 # type: ignore
+    sys_util,  # NOQA 有动态用法，确保被打包 # type: ignore
+)
 from SRACore.util.data_persister import load_cache, load_config
 from SRACore.util.errors import ThreadStoppedError
 from SRACore.util.logger import logger
@@ -34,7 +34,7 @@ class TaskManager:
         """
         self.log_queue = None
         self._stop_event = threading.Event()
-        self.task_list: list[type[BaseTask]] = get_tasks()
+        self.task_list: list[type[BaseTask]] = get_task_classes()
         self.settings: AppSettings = settings
         logger.debug(f"Successfully load task: {self.task_list}")
 
@@ -100,7 +100,7 @@ class TaskManager:
                             task.fail()
                             return  # 终止当前配置的执行
                         # 任务完成
-                        task.finish()
+                        task.complete()
                     except ThreadStoppedError as e:
                         logger.error(e)
                         break
@@ -112,7 +112,7 @@ class TaskManager:
                 logger.info(Resource.task_configCompleted(config_name))
                 logger.info("=" * 50)
             logger.info("All tasks completed.")
-            notify.try_send_notification(
+            try_send_notification(
                 Resource.task_notificationTitle,
                 Resource.task_notificationMessage,
                 operator=last_operator
@@ -192,38 +192,6 @@ class TaskManager:
                         logger.exception(Resource.task_instantiateFailed(index, str(e)))
         return tasks
 
-    def _load_custom_task(self, ct: dict, operator, config: dict):
-        script_id = ct.get("ScriptId", "")
-        task_entry = ct.get("TaskEntry", "main.py")
-        task_class_name = ct.get("TaskClassName", "")
-        params = ct.get("Params", {})
-        scripts_dir = AppDataDir / "scripts"
-        script_dir = scripts_dir / script_id
-        entry_path = script_dir / task_entry
-        if not entry_path.exists():
-            logger.error(f"自定义任务脚本不存在：{entry_path}")
-            return None
-        module_name = f"_sra_script_{script_id}_{task_entry.replace('.py', '')}"
-        if str(script_dir) not in sys.path:
-            sys.path.insert(0, str(script_dir))
-        if str(scripts_dir) not in sys.path:
-            sys.path.insert(0, str(scripts_dir))
-        try:
-            spec = importlib.util.spec_from_file_location(module_name, entry_path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            task_class = getattr(module, task_class_name)
-        except Exception as e:
-            logger.error(f"加载自定义任务 {task_class_name} 失败：{e}")
-            return None
-        task_config = dict(config)
-        task_config['_task_params'] = params
-        task_config['_task_name'] = ct.get("Name", script_id)
-        task_instance = task_class(operator, task_config)
-        # 设置自定义任务key，供on_start/on_finish通知匹配使用
-        task_instance._sra_task_key = f"CustomTask_{ct.get('Id', '')}"
-        return task_instance
-
     def run_task(self, task: int | str, config_name: str | None = None) -> bool:
         """
         根据配置名称和任务索引或名称执行单个任务。
@@ -264,7 +232,7 @@ class TaskManager:
             else:
                 logger.info(Resource.task_taskCompleted(str(task_instance)))
                 # 单次运行：完成
-                task_instance.finish()
+                task_instance.complete()
             return result
         except ThreadStoppedError as e:
             logger.error(e)
@@ -275,6 +243,84 @@ class TaskManager:
             return False
         finally:
             logger.debug("[Done]")
+
+    def get_task(self, config_name: str, task: str) -> BaseTask | None:
+        """
+        根据配置名称和任务索引或名称获取单个任务实例。
+
+        Args:
+            config_name (str): 配置名称
+            task ( str): 任务索引或任务类名称（str）
+
+        Returns:
+            BaseTask: 任务实例
+
+        Raises:
+            ValueError: 如果任务未找到或配置加载失败
+        """
+        # 根据参数类型获取任务类
+        task_class = None
+        if task.isdecimal():
+            index = int(task)
+            if 0 <= index < len(self.task_list):
+                task_class = self.task_list[index]
+        else:
+            for cls in self.task_list:
+                if cls.__name__.lower() == task.lower():
+                    task_class = cls
+                    break
+            else:
+                task_class = importlib.import_module(f"tasks.{task}").__getattribute__(task)
+        if task_class is None:
+            return None
+        try:
+            # 加载指定配置
+            config = load_config(config_name)
+            if config is None:
+                return None
+            print_config = config.to_dict()
+            print_config["startGame"]["password"] = "******"
+            print_config["startGame"]["username"] = "******"
+            logger.debug('config: ' + str(print_config))
+            # 实例化任务类
+            operator = self.get_operator()
+            return task_class(operator, config)
+        except Exception as e:
+            logger.error(Resource.task_instantiateFailed(task, f'{e.__class__.__name__}: {e}'))
+            return None
+
+    def _load_custom_task(self, ct: dict, operator, config: dict):
+        script_id = ct.get("ScriptId", "")
+        task_entry = ct.get("TaskEntry", "main.py")
+        task_class_name = ct.get("TaskClassName", "")
+        params = ct.get("Params", {})
+        scripts_dir = AppDataDir / "scripts"
+        script_dir = scripts_dir / script_id
+        entry_path = script_dir / task_entry
+        if not entry_path.exists():
+            logger.error(f"自定义任务脚本不存在：{entry_path}")
+            return None
+        module_name = f"_sra_script_{script_id}_{task_entry.replace('.py', '')}"
+        if str(script_dir) not in sys.path:
+            sys.path.insert(0, str(script_dir))
+        if str(scripts_dir) not in sys.path:
+            sys.path.insert(0, str(scripts_dir))
+        try:
+            spec = importlib.util.spec_from_file_location(module_name, entry_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            task_class = getattr(module, task_class_name)
+        except Exception as e:
+            logger.error(f"加载自定义任务 {task_class_name} 失败：{e}")
+            return None
+        task_config = dict(config)
+        task_config['_task_params'] = params
+        task_config['_task_name'] = ct.get("Name", script_id)
+        task_instance = task_class(operator, task_config)
+        # 设置自定义任务key，供on_start/on_finish通知匹配使用
+        task_instance._sra_task_key = f"CustomTask_{ct.get('Id', '')}"
+        return task_instance
+
 
     def get_task(self, config_name: str, task: str) -> BaseTask | None:
         """
@@ -333,3 +379,4 @@ class TaskManager:
         except Exception as e:
             logger.error(Resource.task_instantiateFailed(task, f'{e.__class__.__name__}: {e}'))
             return None
+

@@ -204,21 +204,12 @@ npm run build # 构建项目，包括前端发布包和后端可执行文件，�
 
 ```bash
 # 运行全部后端测试
-pytest tests/backend/ -v
-
-# 运行测试并查看覆盖率
-pytest tests/backend/ --cov=SRACore --cov=tasks --cov-report=term-missing
-
-# 检查增量覆盖率（对比 main 分支）
-pytest tests/backend/ --cov=SRACore --cov=tasks --cov-report=xml
-diff-cover coverage.xml --compare-branch=origin/main --fail-under=60
+pytest 
 ```
-
-> ⚠️ 提交 PR 时，CI 会自动检查变更代码的测试覆盖率，增量覆盖率低于 60% 将阻断合并。
 
 ## ⚠️ 常见问题
 
-- **前端构建失败**：确保已安装 .NET 8.0 SDK，并尝试重新还原依赖：
+- **前端构建失败**：确保已安装 .NET 10.0 SDK，并尝试重新还原依赖：
   ```bash
   dotnet restore ./SRAFrontend/SRAFrontend.csproj -r win-x64 --force
   ```
@@ -238,9 +229,7 @@ diff-cover coverage.xml --compare-branch=origin/main --fail-under=60
 
 ### 本地化支持
 
-SRA 后端采用 [pyl10nc](https://github.com/Shasnow/pyl10nc) 进行本地化支持，欢迎贡献翻译！
-
-1. 克隆仓库并创建新的分支
+1. 克隆仓库
 2. 在 `SRACore/localization/` 目录下编辑 `resource.toml` 文件，添加新的语言支持
 
    示例：

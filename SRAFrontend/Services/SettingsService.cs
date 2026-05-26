@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using System.Text.Json;
@@ -21,6 +23,7 @@ public class SettingsService(ILogger<SettingsService> logger)
     private CancellationTokenSource? _autoSaveCts;
     public AppSettings Settings { get; private set; } = new ();
     public event PropertyChangedEventHandler? SettingsPropertyChanged;
+    public event NotifyCollectionChangedEventHandler? SettingsCollectionChanged;
 
     public void Load()
     {
@@ -53,6 +56,8 @@ public class SettingsService(ILogger<SettingsService> logger)
         Subscribe(Settings.Update);
         Subscribe(Settings.Display);
         Subscribe(Settings.Advanced);
+        
+        ;
     }
 
     public void Save()
@@ -90,6 +95,7 @@ public class SettingsService(ILogger<SettingsService> logger)
             ScheduleAutoSave();
         };
     }
+    
     
     private void ScheduleAutoSave()
     {

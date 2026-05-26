@@ -1,13 +1,14 @@
 import importlib
 from abc import ABC, abstractmethod
 from typing import final
+from pathlib import Path
 
 from loguru import logger
 
 from SRACore.localization import Resource
 from SRACore.models.tasks_config import TasksConfig
+from SRACore.notification import try_send_notification
 from SRACore.operators.ioperator import IOperator
-from SRACore.util import notify
 
 
 class Executable:
@@ -48,40 +49,40 @@ class BaseTask(Executable, ABC):
         pass
 
     @final
-    def finish(self) -> None:
-        self.on_finish()
+    def complete(self) -> None:
+        self.on_completed()
 
     @final
     def fail(self) -> None:
-        self.on_failure()
+        self.on_failed()
+
+    def _task_notify_key(self) -> str:
+        """通知匹配用的key，自定义任务用CustomTask_{id}，内置任务用类名"""
+        return getattr(self, "_sra_task_key", self.__class__.__name__)
 
     def send_notification(self, message: str, result: str) -> None:
-        notify.try_send_notification(
+        try_send_notification(
             Resource.task_notificationTitle,
             message,
             result=result,
             operator=self.operator
         )
 
-    def _task_notify_key(self) -> str:
-        """通知匹配用的key，自定义任务用CustomTask_{id}，内置任务用类名"""
-        return getattr(self, "_sra_task_key", self.__class__.__name__)
-
     def on_start(self) -> None:
         on_start = self.settings.Notification.onStart
         if self._task_notify_key() in on_start:
             self.send_notification(f"任务 {self._task_notify_key()} 开始执行。", "success")
 
-    def on_finish(self) -> None:
-        on_complete = self.settings.Notification.onComplete
+    def on_completed(self) -> None:
+        on_complete = self.settings.Notification.onCompleted
         if self._task_notify_key() in on_complete:
             self.send_notification(f"任务 {self._task_notify_key()} 执行完成。", "success")
 
-    def on_failure(self) -> None:
+    def on_failed(self) -> None:
         if self.operator.width != 1920 and self.operator.height != 1080:
             logger.warning(
                 f"可能的失败原因：游戏分辨率不符合要求：1920x1080，当前：{self.operator.width}x{self.operator.height}。")
-        self.send_notification(f"任务 {self.__class__.__name__} 执行失败。", "error")
+        self.send_notification(f"任务 {self._task_notify_key()} 执行失败。", "error")
 
     def __str__(self):
         return f"{self.__class__.__name__}"
@@ -90,13 +91,15 @@ class BaseTask(Executable, ABC):
         return f"<{self.__class__.__name__}>"
 
 
-registry:list[tuple[int, type[BaseTask]]] = list()
+registry: list[tuple[int, type[BaseTask]]] = list()
 
 
-def _ensure_task_modules_loaded() -> None:
+def _ensure_task_modules_loaded(package="tasks") -> None:
     """确保任务模块已被导入，从而触发装饰器注册。"""
     try:
-        importlib.import_module("tasks")
+        # 扫描 tasks 包下的所有 .py 文件，导入每个模块
+        for file in Path(package).glob("*.py"):
+            importlib.import_module(f"{package}.{file.stem}")
     except ModuleNotFoundError:
         # 运行环境可能没有顶层 tasks 包；此时仅依赖显式导入的注册结果。
         pass
@@ -106,6 +109,7 @@ def task(_cls: type[BaseTask] | None = None, *, order: int | None = None):
     """
     任务注册装饰器，用于将任务类注册到全局任务列表中，并指定执行顺序。
     """
+
     def decorator(cls: type[BaseTask]) -> type[BaseTask]:
         if not issubclass(cls, BaseTask):
             raise TypeError("只能注册 BaseTask 的子类")
@@ -117,6 +121,7 @@ def task(_cls: type[BaseTask] | None = None, *, order: int | None = None):
         return decorator
     return decorator(_cls)
 
-def get_tasks() -> list[type[BaseTask]]:
+
+def get_task_classes() -> list[type[BaseTask]]:
     _ensure_task_modules_loaded()
     return [cls for order, cls in sorted(registry, key=lambda x: x[0])]
