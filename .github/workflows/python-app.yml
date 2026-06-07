@@ -1,263 +1,136 @@
-#   <StarRailAssistant:An automated program that helps you complete daily tasks of StarRail.>
-#   Copyright © <2024> <Shasnow>
-
-#   This file is part of StarRailAssistant.
-
-#   StarRailAssistant is free software: you can redistribute it and/or modify it
-#   under the terms of the GNU General Public License as published by the Free Software Foundation,
-#   either version 3 of the License, or (at your option) any later version.
-
-#   StarRailAssistant is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
-#   without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#   See the GNU General Public License for more details.
-
-#   You should have received a copy of the GNU General Public License along with StarRailAssistant.
-#   If not, see <https://www.gnu.org/licenses/>.
-
-#   yukikage@qq.com
-
 name: Build StarRailAssistant
 
 on:
   workflow_dispatch:
+    inputs:
+      prerelease:
+        description: "Publish as prerelease"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: write
-  actions: write
 
 jobs:
-  pre_check:
-    name: Pre Checks
-    runs-on: ubuntu-latest
-    steps:
-      - name: Repo Check
-        run: |
-          if [[ "$GITHUB_REPOSITORY" != "Shasnow/StarRailAssistant" ]]; then
-            echo "When forking this repository to make your own builds, you have to adjust this check."
-            exit 1
-          fi
-          exit 0
   build:
+    name: Build Windows packages
     runs-on: windows-latest
-    needs: pre_check
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Install .NET 10.0
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
-        
-      - name: Publish win-x64
-        run: |
-          dotnet publish -c Release -r win-x64 .\SRAFrontend\SRAFrontend.sln
+          dotnet-version: "10.0.x"
+
+      - name: Restore frontend
+        run: dotnet restore .\SRAFrontend\SRAFrontend.sln
+
+      - name: Publish frontend
+        run: dotnet publish -c Release -r win-x64 .\SRAFrontend\SRAFrontend.Desktop\SRAFrontend.Desktop.csproj
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          
-      - name: Install dependencies
+          cache: "pip"
+
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 pytest
           pip install nuitka
           pip install -r requirements.txt
 
-      - name: Lint with flake8
-        run: |
-          # stop the build if there are Python syntax errors or undefined names
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-          
-      - name: Built with package.py
-        run: |
-          python scripts/package.py
-          
+      - name: Check Python syntax
+        run: python -m compileall -q SRACore tasks main.py
+
+      - name: Build packages
+        run: python scripts/package.py
+
       - name: Read version
-        id: read_version
+        id: version
+        shell: pwsh
         run: |
-          $VERSION=(Get-Content -Path "version_info.txt" -TotalCount 1).Trim()
-          $CHANNEL=$VERSION.Contains("-beta") ? "beta" : "stable"
-          "version=$VERSION" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "channel=$CHANNEL" | Out-File -FilePath $env:GITHUB_ENV -Append
-          
+          $version = (Get-Content -Path "version_info.txt" -TotalCount 1).Trim()
+          "version=$version" >> $env:GITHUB_OUTPUT
+
       - name: Install Inno Setup
+        run: choco install innosetup --no-progress --yes
+
+      - name: Build installer
+        shell: pwsh
         run: |
-          choco install innosetup --no-progress --yes
-         
-      - name: Prepare for Inno Setup
-        run: |
-          Expand-Archive -Path StarRailAssistant_${{ env.version }}.zip -DestinationPath StarRailAssistant
+          Expand-Archive -Path "StarRailAssistant_${{ steps.version.outputs.version }}.zip" -DestinationPath StarRailAssistant
           Copy-Item version_info.txt -Destination setup\install_info.txt -Force
-          
-      - name: Build Installer
-        run: |
-          New-Item -ItemType Directory -Path setup\SRA -Force
+          New-Item -ItemType Directory -Path setup\SRA -Force | Out-Null
           Copy-Item -Path StarRailAssistant\* -Destination setup\SRA -Force -Recurse
-          New-Item -ItemType Directory -Path setup\output -Force
-          python setup/version_modifier.py --version "${{ env.version }}"
+          New-Item -ItemType Directory -Path setup\output -Force | Out-Null
+          python setup/version_modifier.py --version "${{ steps.version.outputs.version }}"
           iscc setup\srasetup.iss
           Copy-Item -Path setup\output\* -Destination . -Force
-          
-      - name: Upload Setup Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: StarRailAssistant_${{ env.version }}_setup
-          path: StarRailAssistant_${{ env.version }}_Setup.exe
-      - name: Upload Full zip Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: StarRailAssistant_${{ env.version }}
-          path: StarRailAssistant_${{ env.version }}.zip
-      - name: Upload Core zip Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: StarRailAssistant_Core_${{ env.version }}
-          path: StarRailAssistant_Core_${{ env.version }}.zip
 
-      - name: Upload Lite zip Artifact
+      - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: StarRailAssistant_Lite_${{ env.version }}
-          path: StarRailAssistant_Lite_${{ env.version }}.zip
-          
-      - name: Upload Version_Info Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: version_info
-          path: version_info.txt
-
+          name: release-artifacts
+          path: |
+            StarRailAssistant_${{ steps.version.outputs.version }}.zip
+            StarRailAssistant_Core_${{ steps.version.outputs.version }}.zip
+            StarRailAssistant_Lite_${{ steps.version.outputs.version }}.zip
+            StarRailAssistant_${{ steps.version.outputs.version }}_Setup.exe
+            version_info.txt
 
   publish_release:
-    name: Publish release
+    name: Publish GitHub release
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: StarRailAssistant_*
-          merge-multiple: true
+          name: release-artifacts
           path: artifacts
-      - name: Download Version_Info
-        uses: actions/download-artifact@v4
+
+      - name: Read release metadata
+        id: metadata
+        shell: bash
+        run: |
+          version="$(head -n 1 artifacts/version_info.txt | sed 's/\r$//')"
+          {
+            echo "version=$version"
+            echo "notes<<EOF"
+            tail -n +3 artifacts/version_info.txt | sed 's/\r$//'
+            echo
+            echo "Download notes:"
+            echo "- StarRailAssistant_Core*.zip - core package without GUI; manual config is required"
+            echo "- StarRailAssistant_Lite*.zip - lightweight package; core package is required separately"
+            echo "- StarRailAssistant_vX.X.X.zip - full portable package"
+            echo "- StarRailAssistant_vX.X.X_Setup.exe - full installer"
+            echo
+            echo "Packages except the core package require .NET Desktop Runtime 10.0."
+            echo
+            echo '```This release was built automatically by GitHub Actions.```'
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
         with:
-          name: version_info
-          path: ./
-      - name: Check if release exists
-        id: check_if_release_exists
-        run: |
-          release_id=$(gh release view $(sed 's/\r$//g' <(head -n 1 version_info.txt)) --json id --jq .id || true)
-          if [[ -z $release_id ]]; then
-            echo "release_exists=false" >> $GITHUB_OUTPUT
-          else
-            echo "release_exists=true" >> $GITHUB_OUTPUT
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-      - name: Create release
-        id: create_release
-        if: steps.check_if_release_exists.outputs.release_exists == 'false'
-        run: |
-          set -xe
-          shopt -s nullglob
-          NAME="$(sed 's/\r$//g' <(head -n 1 version_info.txt))"
-          TAGNAME="$(sed 's/\r$//g' <(head -n 1 version_info.txt))"
-          NOTES_MAIN="$(sed 's/\r$//g' <(tail -n +3 version_info.txt))"
-          NOTES="$NOTES_MAIN
-          
-          [已有 Mirror酱 CDK ？前往 Mirror酱 高速下载](https://mirrorchyan.com/zh/projects?rid=StarRailAssistant&source=sra-release)
-
-          下载说明: 
-          - StarRailAssistant_Core*.zip - 核心包、无gui、可运行、需手写配置文件
-          - StarRailAssistant_Lite*.zip - 轻量包、需额外下载核心包才有实际功能
-          - StarRailAssistant_vX.X.X.zip - 全量压缩包、免安装
-          - StarRailAssistant_vX.X.X_Setup.exe - 全量安装包
-
-          除了核心包以外的包都需要安装 [.NET Desktop Runtime 10.0](https://dotnet.microsoft.com/zh-cn/download/dotnet/10.0) 才能运行
-          首次使用建议下载全量压缩包或全量安装包
-          **看准文件名再下载！**
-
-          \`\`\`本release通过GitHub Actions自动构建\`\`\`"
-          gh release create "$TAGNAME" --target "main" --title "$NAME" --notes "$NOTES" --prerelease artifacts/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-      - name: Update release
-        if: steps.check_if_release_exists.outputs.release_exists == 'true'
-        run: |
-          set -xe
-          shopt -s nullglob
-          NAME="$(sed 's/\r$//g' <(head -n 1 version_info.txt))"
-          TAGNAME="$(sed 's/\r$//g' <(head -n 1 version_info.txt))"
-          NOTES_MAIN="$(sed 's/\r$//g' <(tail -n +3 version_info.txt))"
-          NOTES="$NOTES_MAIN
-          
-          [已有 Mirror酱 CDK ？前往 Mirror酱 高速下载](https://mirrorchyan.com/zh/projects?rid=StarRailAssistant&source=sra-release)
-
-          下载说明: 
-          - StarRailAssistant_Core*.zip - 核心包、无gui、可运行、需手写配置文件
-          - StarRailAssistant_Lite*.zip - 轻量包、需额外下载核心包才有实际功能
-          - StarRailAssistant_vX.X.X.zip - 全量压缩包、免安装
-          - StarRailAssistant_vX.X.X_Setup.exe - 全量安装包
-
-          除了核心包以外的包都需要安装 [.NET Desktop Runtime 10.0](https://dotnet.microsoft.com/zh-cn/download/dotnet/10.0) 才能运行
-          首次使用建议下载全量压缩包或全量安装包
-          **看准文件名再下载！**
-
-          \`\`\`本release通过GitHub Actions自动构建\`\`\`"
-          gh release delete "$TAGNAME" --yes
-          gh release create "$TAGNAME" --target "main" --title "$NAME" --notes "$NOTES" --prerelease artifacts/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-
-#      - name: Trigger MirrorChyanUploading
-#        shell: bash
-#        run: |
-#          gh workflow run --repo $GITHUB_REPOSITORY mirrorchyan
-#          gh workflow run --repo $GITHUB_REPOSITORY mirrorchyan_release_note
-#        env:
-#          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-  mirrorchyan:
-    needs: publish_release
-    runs-on: macos-latest
-    if: ${{ github.repository_owner == 'Shasnow' }}
-    steps:
-      - name: upload
-        uses: MirrorChyan/uploading-action@v1
-        with:
-          filetype: latest-release
-          filename: "StarRailAssistant_v*.zip"
-          mirrorchyan_rid: StarRailAssistant
-
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          owner: ${{ github.repository_owner }}
-          repo: ${{ github.event.repository.name }}
-          upload_token: ${{ secrets.MirrorChyanUploadToken }}
-
-      - name: release note
-        uses: MirrorChyan/release-note-action@v1
-        with:
-          mirrorchyan_rid: StarRailAssistant
-
-          upload_token: ${{ secrets.MirrorChyanUploadToken }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-  auto_mas:
-    runs-on: ubuntu-latest
-    needs: mirrorchyan
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Update Auto-MAS
-        run: |
-          VERSION=$(node -p '"v" + require("./package.json").version')
-          CHANNEL=$([[ "$VERSION" == *"-beta"* ]] && echo "beta" || echo "stable")
-          curl -X POST -H "Content-Type: application/json" \
-            -d "{\"version\":\"$VERSION\",\"res_id\":\"StarRailAssistant\",\"channel\":\"$CHANNEL\"}" \
-            "${{ secrets.UPDATE_URL }}"
+          tag_name: ${{ steps.metadata.outputs.version }}
+          name: ${{ steps.metadata.outputs.version }}
+          body: ${{ steps.metadata.outputs.notes }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease == 'true' || contains(steps.metadata.outputs.version, '-') }}
+          make_latest: ${{ contains(steps.metadata.outputs.version, '-') && 'false' || 'true' }}
+          files: |
+            artifacts/StarRailAssistant_${{ steps.metadata.outputs.version }}.zip
+            artifacts/StarRailAssistant_Core_${{ steps.metadata.outputs.version }}.zip
+            artifacts/StarRailAssistant_Lite_${{ steps.metadata.outputs.version }}.zip
+            artifacts/StarRailAssistant_${{ steps.metadata.outputs.version }}_Setup.exe

@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:suki="https://github.com/kikipoulet/SukiUI"
+             xmlns:lang="clr-namespace:SRAFrontend.Localization;assembly=SRAFrontend"
+             xmlns:viewModels="clr-namespace:SRAFrontend.Desktop.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="SRAFrontend.Desktop.Views.ExtensionPageView"
+             x:DataType="viewModels:ExtensionPageViewModel">
+    <ScrollViewer>
+        <StackPanel Spacing="10" Margin="10">
+
+            <!-- 自动对话 -->
+            <suki:GlassCard>
+                <Expander Header="自动对话" IsExpanded="False">
+                    <Grid ColumnDefinitions="Auto,Auto,*" RowDefinitions="Auto,Auto" Margin="0,8,0,0">
+                        <Label Grid.Row="0" Content="启用" />
+                        <ToggleSwitch Grid.Row="0" Grid.Column="1" IsChecked="{Binding EnableAutoPlot}"/>
+                        <Label Grid.Row="1" Grid.Column="0" Content="跳过对话" />
+                        <ToggleSwitch Grid.Row="1" Grid.Column="1" IsChecked="{Binding SkipPlot}"/>
+                    </Grid>
+                </Expander>
+            </suki:GlassCard>
+
+
+            <!-- 猫猫糕友人帐 -->
+            <suki:GlassCard>
+                <suki:GroupBox Header="猫猫糕友人帐">
+                    <StackPanel Spacing="4">
+                        <Label Content="查询对应猫猫糕UID"/>
+                        <Button Content="寻找猫猫糕"
+                                Click="Button_OnClick"/>
+                    </StackPanel>
+                </suki:GroupBox>
+            </suki:GlassCard>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

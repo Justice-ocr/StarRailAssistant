@@ -410,6 +410,7 @@ class CurrencyWars(Executable):
             self.operator.paste()
             self.operator.sleep(1)
             self.operator.click_img(IMG.ENSURE2, after_sleep=1)
+            self.operator.wait_img(CWIMG.APPLY_STRATEGY)
             self.operator.click_img(CWIMG.APPLY_STRATEGY, after_sleep=1)
             self.operator.press_key('esc', presses=3, interval=1)
         return True
@@ -953,9 +954,9 @@ class CurrencyWars(Executable):
             if coins < 4:
                 logger.info(f"金币不足4（当前{coins}），退出购物循环")
                 break
-            # 等级<最低等级：升级
-            if level < self.min_level:
-                logger.info(f"等级{level}<最低等级{self.min_level}，执行升级操作")
+            # 等级大于3且小于最低等级：升级
+            if 3 < level < self.min_level:
+                logger.info(f"等级{level}大于3且小于最低等级{self.min_level}，执行升级操作")
                 self.operator.press_key('f')
                 self.operator.sleep(0.5)
                 continue

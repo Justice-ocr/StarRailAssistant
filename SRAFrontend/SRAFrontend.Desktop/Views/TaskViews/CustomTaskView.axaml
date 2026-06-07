@@ -1,0 +1,134 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:suki="https://github.com/kikipoulet/SukiUI"
+             xmlns:viewModels="clr-namespace:SRAFrontend.Desktop.ViewModels"
+             xmlns:models="clr-namespace:SRAFrontend.Models;assembly=SRAFrontend"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="SRAFrontend.Desktop.Views.TaskViews.CustomTaskView"
+             x:DataType="viewModels:TaskPageViewModel">
+    <suki:GlassCard>
+        <suki:GroupBox>
+            <suki:GroupBox.Header>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <CheckBox Content="{Binding SelectedCustomTask.Name, FallbackValue=Custom task}"
+                              IsChecked="{Binding SelectedCustomTask.IsEnabled}"/>
+                    <Button Content="&#xE3D0;" Classes="Flat Icon" Height="20" FontSize="14"
+                            Command="{Binding SingleCustomTaskCommand}"
+                            ToolTip.Tip="Run once"/>
+                </StackPanel>
+            </suki:GroupBox.Header>
+
+            <ScrollViewer>
+                <StackPanel Margin="10" Spacing="16">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Label Grid.Column="0" Content="Task name" VerticalAlignment="Center"/>
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding SelectedCustomTask.Name}"
+                                 Watermark="Enter task name"/>
+                    </Grid>
+
+                    <suki:GlassCard>
+                        <StackPanel Spacing="10">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock FontWeight="Medium" Text="Select installed script"
+                                           VerticalAlignment="Center"/>
+                                <Button Content="Refresh" Classes="Flat"
+                                        FontSize="12" Height="24" Padding="8,0"
+                                        Command="{Binding RefreshInstalledScriptsCommand}"
+                                        ToolTip.Tip="Refresh installed scripts"/>
+                            </StackPanel>
+
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12"
+                                  RowDefinitions="Auto,Auto" RowSpacing="8">
+                                <Label Grid.Row="0" Grid.Column="0" Content="Script"
+                                       VerticalAlignment="Center"/>
+                                <ComboBox Grid.Row="0" Grid.Column="1"
+                                          ItemsSource="{Binding InstalledScripts}"
+                                          SelectedItem="{Binding SelectedInstalledScript}"
+                                          HorizontalAlignment="Stretch">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="models:ScriptManifest">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}" FontWeight="Medium"/>
+                                                <TextBlock FontSize="11" Opacity="0.5">
+                                                    <Run Text="v"/>
+                                                    <Run Text="{Binding Version}"/>
+                                                    <Run Text=" - "/>
+                                                    <Run Text="{Binding Author}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+
+                                <Label Grid.Row="1" Grid.Column="0" Content="Task"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding SelectedScriptHasMultipleTasks}"/>
+                                <ComboBox Grid.Row="1" Grid.Column="1"
+                                          ItemsSource="{Binding SelectedScriptTasks}"
+                                          SelectedItem="{Binding SelectedScriptTask}"
+                                          IsVisible="{Binding SelectedScriptHasMultipleTasks}"
+                                          HorizontalAlignment="Stretch">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="models:ScriptTaskDef">
+                                            <TextBlock Text="{Binding Name}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </Grid>
+
+                            <TextBlock FontSize="12" Opacity="0.6"
+                                       IsVisible="{Binding SelectedCustomTask.ScriptId, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                       TextWrapping="Wrap">
+                                <Run Text="Selected: "/>
+                                <Run Text="{Binding SelectedCustomTask.Name}"/>
+                                <Run Text=" - "/>
+                                <Run Text="{Binding SelectedCustomTask.TaskEntry}"/>
+                            </TextBlock>
+                        </StackPanel>
+                    </suki:GlassCard>
+
+                    <Button IsVisible="{Binding SelectedCustomTask.ScriptId, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                            Classes="Flat"
+                            Content="Edit script config"
+                            HorizontalAlignment="Left"
+                            FontSize="13"
+                            Height="32" Padding="14,0"
+                            Command="{Binding OpenScriptConfigCommand}"/>
+
+                    <Expander Header="Advanced: manual script path" IsExpanded="False">
+                        <StackPanel Spacing="8" Margin="0,6,0,0">
+                            <TextBlock FontSize="12" Opacity="0.6" TextWrapping="Wrap"
+                                       Text="If the script was not installed through a repository, select a .py file directly."/>
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding SelectedCustomTask.ScriptPath}"
+                                         Watermark="Select Python script file (.py)"/>
+                                <Button Grid.Column="1" Classes="Icon"
+                                        FontFamily="{StaticResource Phosphor}"
+                                        Content="&#xE256;"
+                                        Command="{Binding SelectCustomTaskScriptCommand}"
+                                        ToolTip.Tip="Select script file"/>
+                            </Grid>
+                        </StackPanel>
+                    </Expander>
+
+                    <suki:GlassCard>
+                        <StackPanel Spacing="4">
+                            <TextBlock FontWeight="Medium" Text="Notes"/>
+                            <TextBlock TextWrapping="Wrap" Opacity="0.7" FontSize="12"
+                                       Text="Install scripts from the script store, then select them above."/>
+                        </StackPanel>
+                    </suki:GlassCard>
+
+                    <Button Content="Delete this custom task"
+                            Classes="Danger"
+                            HorizontalAlignment="Left"
+                            Command="{Binding RemoveCustomTaskCommand}"/>
+                </StackPanel>
+            </ScrollViewer>
+        </suki:GroupBox>
+    </suki:GlassCard>
+</UserControl>

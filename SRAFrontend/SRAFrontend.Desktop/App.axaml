@@ -1,0 +1,23 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="SRAFrontend.Desktop.App"
+             xmlns:sukiUi="clr-namespace:SukiUI;assembly=SukiUI"
+             xmlns:sraFrontend="clr-namespace:SRAFrontend"
+             xmlns:desktop="clr-namespace:SRAFrontend.Desktop"
+             RequestedThemeVariant="Default">
+             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <Application.DataTemplates>
+        <desktop:ViewLocator/>
+    </Application.DataTemplates>
+  
+    <Application.Styles>
+        <StyleInclude Source="/Styles/LabelStyles.axaml"/>
+        <StyleInclude Source="/Styles/ButtonStyles.axaml"/>
+        <sukiUi:SukiTheme ThemeColor="Blue" Locale="zh-CN"/>
+    </Application.Styles>
+             
+    <Application.Resources>
+        <FontFamily x:Key="Phosphor">/Assets/Phosphor.ttf#Phosphor</FontFamily>
+    </Application.Resources>
+</Application>

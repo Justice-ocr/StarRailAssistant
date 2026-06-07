@@ -31,7 +31,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from urllib.request import urlopen
 
 ROOT_PATH = Path(__file__).resolve().parent.parent
-WIN_X64_PUBLISH_PATH = ROOT_PATH / "SRAFrontend" / "bin" / "Release" / "net10.0" / "win-x64" / "publish"
+WIN_X64_PUBLISH_PATH = ROOT_PATH / "SRAFrontend" / "SRAFrontend.Desktop" / "bin" / "Release" / "net10.0" / "win-x64" / "publish"
 DIST_DIR = ROOT_PATH / "main.dist"
 PYTHON31210_URL = "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip"
 GET_PIP_URL = "https://bootstrap.pypa.io/get-pip.py"
@@ -116,7 +116,7 @@ def copy_core_resources(dist: Path):
     # shutil.copy2(ROOT_PATH / "requirements.txt", dist / "requirements.txt")
     # shutil.copy2(ROOT_PATH / "requirements-linux.txt", dist / "requirements-linux.txt")
     # shutil.copy2(ROOT_PATH / "main.py", dist / "main.py")
-    # shutil.copytree(ROOT_PATH / "SRACore", dist / "SRACore", dirs_exist_ok=True)
+    # shutil.copytree(ROOT_PATH / "SRACore", dist / "SRACore")
     (DIST_DIR / "SRACore" / "localization").mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT_PATH / "SRACore" / "localization" / "resource_en-us.json", DIST_DIR / "SRACore" / "localization" / "resource_en-us.json")
     shutil.copy2(ROOT_PATH / "SRACore" / "localization" / "resource_zh-cn.json", DIST_DIR / "SRACore" / "localization" / "resource_zh-cn.json")

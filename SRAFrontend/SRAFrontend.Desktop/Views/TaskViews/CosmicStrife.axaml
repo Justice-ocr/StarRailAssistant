@@ -1,0 +1,132 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:suki="https://github.com/kikipoulet/SukiUI"
+             xmlns:viewModels="clr-namespace:SRAFrontend.Desktop.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="SRAFrontend.Desktop.Views.TaskViews.CosmicStrife"
+             x:DataType="viewModels:TaskPageViewModel">
+    <suki:GlassCard>
+        <suki:GroupBox>
+            <suki:GroupBox.Header>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <CheckBox Content="旷宇纷争" IsChecked="{Binding CosmicStrifeConfig.IsEnabled}"/>
+                    <Button Content="&#xE3D0;" Classes="Flat Icon" Height="20" FontSize="14"
+                            Command="{Binding SingleTaskCommand}"
+                            CommandParameter="CosmicStrifeTask"
+                            ToolTip.Tip="单次运行"/>
+                </StackPanel>
+                
+            </suki:GroupBox.Header>
+            <ScrollViewer>
+                <StackPanel Margin="10">
+                    <suki:GlassCard>
+                        <StackPanel>
+                            <CheckBox IsChecked="{Binding CosmicStrifeConfig.IsDivergentUniverseEnabled}"
+                                      Content="差分宇宙 - 乐园漫记"/>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Label>模式</Label>
+                                <ComboBox SelectedIndex="{Binding CosmicStrifeConfig.DivergentUniverseMode}">
+                                    <ComboBoxItem>刷第一关</ComboBoxItem>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Label>次数</Label>
+                                <NumericUpDown FormatString="0" Value="{Binding CosmicStrifeConfig.DivergentUniverseRuntimes}" Minimum="1" Maximum="99999" />
+                            </StackPanel>
+                            <ToggleSwitch OnContent="秘技速刷" IsChecked="{Binding CosmicStrifeConfig.IsDivergentUniverseUseTechnique}" />
+                            <ToggleSwitch OnContent="启用积分奖励" IsChecked="{Binding CosmicStrifeConfig.IsPointRewardsEnabled}" />
+                        </StackPanel>
+                    </suki:GlassCard>
+                    <TextBlock>请完成引导关卡I、引导关卡II，并清除所有新手提示</TextBlock>
+                    <suki:GlassCard>
+                        <StackPanel>
+                            <CheckBox IsChecked="{Binding CosmicStrifeConfig.IsCurrencyWarsEnabled}"
+                                      Content="货币战争 - 零和博弈" />
+                            <Grid ColumnDefinitions="Auto, Auto">
+                                <Label Content="开拓者名称 " />
+                                <TextBox Grid.Column="1"
+                                         Width="200"
+                                         Text="{Binding CosmicStrifeConfig.CurrencyWarsUsername}"
+                                         Watermark="请输入开拓者角色名"/>
+                            </Grid>
+                            
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Label>类型</Label>
+                                <ComboBox SelectedIndex="{Binding CurrencyWarsModeIndex}" Width="200" HorizontalAlignment="Left">
+                                    <ComboBoxItem>标准博弈</ComboBoxItem>
+                                    <ComboBoxItem>超频博弈</ComboBoxItem>
+                                    <ComboBoxItem>刷开局</ComboBoxItem>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Label>难度</Label>
+                                <ComboBox SelectedIndex="{Binding CosmicStrifeConfig.CurrencyWarsDifficulty}" Width="200">
+                                    <ComboBoxItem>最低难度</ComboBoxItem>
+                                    <ComboBoxItem>最高难度</ComboBoxItem>
+                                    <ComboBoxItem>当前难度</ComboBoxItem>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Label>攻略</Label>
+                                <ComboBox ItemsSource="{Binding Cache.Strategies}"
+                                          SelectedIndex="{Binding CurrencyWarsStrategyIndex}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Title}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <Button Command="{Binding RefreshStrategiesCommand}">刷新</Button>
+                                <HyperlinkButton Content="攻略站" NavigateUri="https://starrailassistant.top/sra-strategy-site/"/>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Label>运行次数</Label>
+                                <NumericUpDown FormatString="0" Value="{Binding CosmicStrifeConfig.CurrencyWarsRuntimes}" Minimum="1" Maximum="99999" />
+                            </StackPanel>
+                            
+                            <Separator/>
+
+                            <StackPanel IsVisible="{Binding !IsCwNormalMode}" Margin="0,4,0,0" Spacing="4">
+                                <TextBlock Foreground="Gray"
+                                           Text="下方可配置Boss名称、Boss词条、投资环境与投资策略。Boss名称用分号分隔，其他项用空格分隔多个。" />
+
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Label Content="Boss名称" />
+                                    <TextBox Width="320"
+                                             Text="{Binding CosmicStrifeConfig.CurrencyWarsRerollBossNames}"
+                                             Watermark="例如：杰帕德;可可利亚;幻胧" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Label Content="Boss词条" />
+                                    <TextBox Width="320"
+                                             Text="{Binding CosmicStrifeConfig.CurrencyWarsRerollBossAffixes}"
+                                             Watermark="例如：决战在即" />
+                                </StackPanel>
+                                
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Label Content="投资环境" />
+                                    <TextBox Width="320"
+                                             Text="{Binding CosmicStrifeConfig.CurrencyWarsRerollInvestEnvironments}"
+                                             Watermark="例如：长线利好 轮岗" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Label Content="投资策略" />
+                                    <TextBox Width="320"
+                                             Text="{Binding CosmicStrifeConfig.CurrencyWarsRerollInvestStrategies}"
+                                             Watermark="例如：砂里淘金" />
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </suki:GlassCard>
+                    <TextBlock>请先手动完成一次以清除所有新手提示</TextBlock>
+                </StackPanel>
+            </ScrollViewer>
+        </suki:GroupBox>
+    </suki:GlassCard>
+</UserControl>

@@ -1,0 +1,73 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:SRAFrontend.Desktop.ViewModels"
+        x:DataType="vm:TaskNotificationWindowViewModel"
+        x:Class="SRAFrontend.Desktop.Views.TaskNotificationWindow"
+        Title="Task notifications"
+        Width="440" Height="560"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid RowDefinitions="*,Auto" Margin="20">
+        <ScrollViewer Grid.Row="0">
+            <StackPanel Spacing="12">
+                <TextBlock Text="Choose which tasks send notifications."
+                           FontSize="13"
+                           Foreground="{DynamicResource SukiLowText}"/>
+
+                <ItemsControl ItemsSource="{Binding TaskNotifications}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TaskNotificationItem">
+                            <Border Margin="0,0,0,6"
+                                    Padding="12,10"
+                                    CornerRadius="8"
+                                    Background="{DynamicResource SukiCardBackground}">
+                                <Grid ColumnDefinitions="*,Auto,Auto">
+                                    <StackPanel Grid.Column="0"
+                                                Orientation="Horizontal"
+                                                Spacing="8"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   FontSize="14"
+                                                   VerticalAlignment="Center"/>
+                                        <Border IsVisible="{Binding IsCustomTask}"
+                                                Width="6" Height="6"
+                                                CornerRadius="3"
+                                                Background="{DynamicResource SukiAccentColor}"
+                                                VerticalAlignment="Center"/>
+                                    </StackPanel>
+
+                                    <CheckBox Grid.Column="1"
+                                              Margin="8,0"
+                                              IsChecked="{Binding NotifyOnStart}"
+                                              Content="Start"/>
+                                    <CheckBox Grid.Column="2"
+                                              IsChecked="{Binding NotifyOnComplete}"
+                                              Content="Complete"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto"
+              Margin="0,12,0,0">
+            <TextBlock Grid.Column="0"
+                       Text="Configure notification channels in Settings."
+                       FontSize="12"
+                       Foreground="{DynamicResource SukiLowText}"
+                       VerticalAlignment="Center"/>
+            <Button Grid.Column="1"
+                    Content="Cancel"
+                    Classes="Flat Rounded"
+                    Margin="0,0,8,0"
+                    Command="{Binding CancelCommand}"/>
+            <Button Grid.Column="2"
+                    Content="Save"
+                    Classes="Rounded"
+                    Command="{Binding SaveCommand}"/>
+        </Grid>
+    </Grid>
+</Window>

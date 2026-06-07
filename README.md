@@ -2,7 +2,7 @@
 <p align="center">
     <img src="https://img.shields.io/badge/platform-Windows-blue" alt="platform">
     <img alt="Static Badge" src="https://img.shields.io/badge/python-3.12-skyblue">
-    <img alt="Static Badge" src="https://img.shields.io/badge/.NET-8.0-purple">
+    <img alt="Static Badge" src="https://img.shields.io/badge/.NET-10.0-purple">
     <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/Shasnow/StarRailAssistant/total">
     <img alt="GitHub Release" src="https://img.shields.io/github/v/release/Shasnow/StarRailAssistant">
     <a href="https://mirrorchyan.com/zh/projects?rid=StarRailAssistant">
@@ -15,7 +15,7 @@
 
 # 🌟 StarRailAssistant(SRA)
 
-🎮 崩坏星穹铁道自动化助手  
+🎮 崩坏星穹铁道自动化助手
 如果您在使用的过程中遇到问题，请先阅读[问题排查](https://starrailassistant.top/trouble/having_trouble.html)。
 
 如果项目对您有帮助，欢迎点个Star⭐支持一下！
@@ -86,7 +86,7 @@ nothing to do with it.
 * 🎯 **小白友好版**：在Release页面下载`StarRailAssistant_vX.X.X.zip`文件，*一切都为您准备妥当*，只需解压到您喜欢的位置，然后运行`SRA.exe`即可！
 * 🔧 **开发者版**：从源码运行SRA，请阅读 [贡献指南](CONTRIBUTING.md)。
 
-### 😡 我不想安装 .NET 10.0 
+### 😡 我不想安装 .NET 10.0
 
 没关系!🤗 SRA 甚至有**社区版**🤓，您可以在 [这里](https://github.com/EveGlowLuna/StarRailAssistant-CommunityEdition) 查看。
 

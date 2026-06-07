@@ -1,0 +1,180 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:suki="https://github.com/kikipoulet/SukiUI"
+             xmlns:vm="clr-namespace:SRAFrontend.Desktop.ViewModels"
+             xmlns:models="clr-namespace:SRAFrontend.Models;assembly=SRAFrontend"
+             x:Class="SRAFrontend.Desktop.Views.ScriptStorePageView"
+             x:DataType="vm:ScriptStorePageViewModel">
+
+    <Grid ColumnDefinitions="220,*" ColumnSpacing="10" Margin="10">
+        <StackPanel Grid.Column="0" Spacing="8">
+            <suki:GlassCard>
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Script repositories" FontWeight="SemiBold" FontSize="13"/>
+                    <ListBox ItemsSource="{Binding Repos}"
+                             SelectedItem="{Binding SelectedRepo}"
+                             MaxHeight="120">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:ScriptRepo">
+                                <TextBlock Text="{Binding Name}"
+                                           ToolTip.Tip="{Binding Url}"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Button Content="Add" Classes="Flat" FontSize="12"
+                                Command="{Binding OpenAddRepoCommand}"/>
+                        <Button Content="Remove" Classes="Flat" FontSize="12"
+                                Command="{Binding RemoveRepoCommand}"
+                                IsEnabled="{Binding SelectedRepo, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </StackPanel>
+                    <StackPanel IsVisible="{Binding IsAddRepoOpen}" Spacing="6">
+                        <TextBox Text="{Binding NewRepoName}" Watermark="Repository name (optional)"/>
+                        <TextBox Text="{Binding NewRepoUrl}" Watermark="GitHub URL or repo.json URL"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Button Content="OK" Classes="Accent" FontSize="12"
+                                    Command="{Binding ConfirmAddRepoCommand}"/>
+                            <Button Content="Cancel" Classes="Flat" FontSize="12"
+                                    Command="{Binding CloseAddRepoCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </suki:GlassCard>
+
+            <suki:GlassCard>
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Installed" FontWeight="SemiBold" FontSize="13"/>
+                    <ItemsControl ItemsSource="{Binding InstalledScripts}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:ScriptManifest">
+                                <Border Padding="8,6" Margin="0,0,0,4"
+                                        Background="{DynamicResource SukiCardBackground}"
+                                        CornerRadius="6">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" FontSize="13"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock FontSize="11" Opacity="0.5">
+                                                <Run Text="v"/><Run Text="{Binding Version}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                            <Button Classes="Flat"
+                                                    FontSize="11"
+                                                    Height="24" Padding="6,0"
+                                                    ToolTip.Tip="View README"
+                                                    Command="{Binding $parent[UserControl].((vm:ScriptStorePageViewModel)DataContext).OpenInstalledReadmeCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <TextBlock Text="README"/>
+                                            </Button>
+                                            <Button Classes="Flat"
+                                                    FontSize="11"
+                                                    Height="24" Padding="6,0"
+                                                    Foreground="OrangeRed"
+                                                    ToolTip.Tip="Uninstall"
+                                                    Command="{Binding $parent[UserControl].((vm:ScriptStorePageViewModel)DataContext).UninstallScriptCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <TextBlock Text="Uninstall" Foreground="OrangeRed"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </suki:GlassCard>
+        </StackPanel>
+
+        <suki:GlassCard Grid.Column="1">
+            <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                    <TextBlock Grid.Column="0" Text="{Binding StatusMessage}"
+                               VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                    <Button Grid.Column="1" Content="Refresh" Classes="Flat"
+                            Command="{Binding FetchRepoScriptsCommand}"
+                            IsEnabled="{Binding !IsLoading}"/>
+                    <Button Grid.Column="2" Content="Check updates" Classes="Flat"
+                            Margin="6,0,0,0"
+                            Command="{Binding CheckUpdatesCommand}"
+                            IsEnabled="{Binding !IsLoading}"/>
+                </Grid>
+
+                <ProgressBar IsVisible="{Binding IsLoading}"
+                             Value="{Binding DownloadProgress}"
+                             Maximum="100"/>
+
+                <ScrollViewer MaxHeight="580">
+                    <ItemsControl ItemsSource="{Binding RepoScripts}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:RepoScriptInfo">
+                                <Border Padding="12,10" Margin="0,0,0,6"
+                                        Background="{DynamicResource SukiCardBackground}"
+                                        CornerRadius="8">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontWeight="SemiBold" FontSize="14"/>
+                                                <Border Background="#2080FF30" CornerRadius="4"
+                                                        Padding="5,1"
+                                                        IsVisible="{Binding HasUpdate}">
+                                                    <TextBlock Text="Update" FontSize="11" Foreground="#40C060"/>
+                                                </Border>
+                                                <Border Background="#20808080" CornerRadius="4"
+                                                        Padding="5,1"
+                                                        IsVisible="{Binding IsInstalled}">
+                                                    <TextBlock FontSize="11" Opacity="0.7">
+                                                        <Run Text="Installed v"/>
+                                                        <Run Text="{Binding InstalledVersion}"/>
+                                                    </TextBlock>
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Description}"
+                                                       Opacity="0.65" FontSize="12"
+                                                       TextWrapping="Wrap" MaxWidth="500"/>
+                                            <TextBlock FontSize="11" Opacity="0.45">
+                                                <Run Text="v"/><Run Text="{Binding Version}"/>
+                                                <Run Text=" - "/><Run Text="{Binding Author}"/>
+                                                <Run Text=" - "/><Run Text="{Binding LastUpdated}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                    Spacing="6" VerticalAlignment="Center">
+                                            <Button Content="README" Classes="Flat"
+                                                    FontSize="12" Height="32" Padding="10,0"
+                                                    ToolTip.Tip="View README"
+                                                    Command="{Binding $parent[UserControl].((vm:ScriptStorePageViewModel)DataContext).OpenReadmeCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button Classes="Accent" FontSize="12"
+                                                    Height="32" Padding="14,0"
+                                                    IsVisible="{Binding !IsInstalled}"
+                                                    Command="{Binding $parent[UserControl].((vm:ScriptStorePageViewModel)DataContext).InstallScriptCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <TextBlock Text="Install"/>
+                                            </Button>
+                                            <Button Classes="Accent" FontSize="12"
+                                                    Height="32" Padding="14,0"
+                                                    IsVisible="{Binding HasUpdate}"
+                                                    Command="{Binding $parent[UserControl].((vm:ScriptStorePageViewModel)DataContext).InstallScriptCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <TextBlock Text="Update"/>
+                                            </Button>
+                                            <Button FontSize="12" Height="32" Padding="14,0"
+                                                    IsVisible="{Binding IsInstalled}"
+                                                    IsEnabled="False" Classes="Flat">
+                                                <TextBlock Text="Installed" Opacity="0.5"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </StackPanel>
+        </suki:GlassCard>
+    </Grid>
+</UserControl>
