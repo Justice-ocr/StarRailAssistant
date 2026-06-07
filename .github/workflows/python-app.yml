@@ -35,7 +35,7 @@ jobs:
         run: dotnet restore .\SRAFrontend\SRAFrontend.sln
 
       - name: Publish frontend
-        run: dotnet publish -c Release -r win-x64 .\SRAFrontend\SRAFrontend.Desktop\SRAFrontend.Desktop.csproj
+        run: dotnet publish -c Release -r win-x64 .\SRAFrontend\SRAFrontend.sln
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -85,6 +85,9 @@ jobs:
             StarRailAssistant_${{ steps.version.outputs.version }}.zip
             StarRailAssistant_Core_${{ steps.version.outputs.version }}.zip
             StarRailAssistant_Lite_${{ steps.version.outputs.version }}.zip
+            StarRailAssistant_Full_${{ steps.version.outputs.version }}.zip
+            StarRailAssistant_ServerDLC_${{ steps.version.outputs.version }}.zip
+            StarRailAssistant_DesktopDLC_${{ steps.version.outputs.version }}.zip
             StarRailAssistant_${{ steps.version.outputs.version }}_Setup.exe
             version_info.txt
 
@@ -112,8 +115,11 @@ jobs:
             echo "Download notes:"
             echo "- StarRailAssistant_Core*.zip - core package without GUI; manual config is required"
             echo "- StarRailAssistant_Lite*.zip - lightweight package; core package is required separately"
-            echo "- StarRailAssistant_vX.X.X.zip - full portable package"
-            echo "- StarRailAssistant_vX.X.X_Setup.exe - full installer"
+            echo "- StarRailAssistant_vX.X.X.zip - basic portable package"
+            echo "- StarRailAssistant_Full*.zip - full portable package with desktop and server DLC"
+            echo "- StarRailAssistant_ServerDLC*.zip - server DLC only"
+            echo "- StarRailAssistant_DesktopDLC*.zip - desktop DLC only"
+            echo "- StarRailAssistant_vX.X.X_Setup.exe - installer"
             echo
             echo "Packages except the core package require .NET Desktop Runtime 10.0."
             echo
@@ -133,4 +139,7 @@ jobs:
             artifacts/StarRailAssistant_${{ steps.metadata.outputs.version }}.zip
             artifacts/StarRailAssistant_Core_${{ steps.metadata.outputs.version }}.zip
             artifacts/StarRailAssistant_Lite_${{ steps.metadata.outputs.version }}.zip
+            artifacts/StarRailAssistant_Full_${{ steps.metadata.outputs.version }}.zip
+            artifacts/StarRailAssistant_ServerDLC_${{ steps.metadata.outputs.version }}.zip
+            artifacts/StarRailAssistant_DesktopDLC_${{ steps.metadata.outputs.version }}.zip
             artifacts/StarRailAssistant_${{ steps.metadata.outputs.version }}_Setup.exe

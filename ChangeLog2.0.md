@@ -4,6 +4,14 @@
 - 保留 Justice 独有的脚本仓库、自定义任务列表、自定义任务配置等功能。
 - 前端程序启动时请求管理员权限，避免启动需要提权的 `SRA-cli.exe` 时报错。
 
+#### 远程后端
+
+- 桌面端新增远程后端模式，可通过 HTTP 连接远程 SRA 服务端执行任务。
+- 在高级设置中可启用远程后端并配置服务器地址（默认 `http://localhost:5000`）。
+- 连接后自动订阅服务端 SSE 日志流，实时显示远程任务输出。
+- 支持通过 `Task/run` 和 `Task/stop` API 启动和停止远程任务。
+- SSE 断线后自动重连（3 秒间隔）。
+
 ### 问题修复
 
 - 修复启用任务通知后，内置任务启动时报 `_task_notify_key` 缺失并导致任务线程崩溃的问题。
@@ -15,7 +23,20 @@
 - 修复自定义脚本任务未读取脚本目录 `config.json`，导致脚本配置未传入后端执行的问题。
 - 修复脚本配置窗口底部按钮栏遮挡最后一项配置的问题。
 
+### 下载说明
+
+- StarRailAssistant_Core*.zip - 标准版（需要手动配置）。
+- StarRailAssistant_Lite*.zip - 试玩版（需要手动安装和配置 Python 环境）。
+- StarRailAssistant_vX.X.X.zip - 基础便携版。
+- StarRailAssistant_Full*.zip - 完整便携版（包含桌面端和服务端）。
+- StarRailAssistant_ServerDLC*.zip - 服务端 DLC。
+- StarRailAssistant_DesktopDLC*.zip - 桌面端 DLC。
+- StarRailAssistant_vX.X.X_Setup.exe - 安装版。
+
+需要安装 [.NET 桌面运行时 10.0](https://dotnet.microsoft.com/zh-cn/download/dotnet/10.0) 才能运行。
+首次使用建议下载完整便携版或安装版。
+
 ### 测试说明
 
 - 已本地构建并发布前端。
-- 已在 `E:\SRA-ReleaseTest` 覆盖测试包前端文件。
+- 已在 `E:\SRA-ReleaseTest` 覆盖测试包前端和后端文件。
