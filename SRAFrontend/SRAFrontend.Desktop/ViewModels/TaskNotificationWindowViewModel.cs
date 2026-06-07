@@ -7,7 +7,7 @@ using SRAFrontend.Services;
 
 namespace SRAFrontend.Desktop.ViewModels;
 
-/// <summary>鍗曚釜浠诲姟鐨勯€氱煡閰嶇疆椤癸紙鍚垎缁勬爣璁帮級</summary>
+/// <summary>单个任务的通知配置项。</summary>
 public partial class TaskNotificationItem : ObservableObject
 {
     public string ClassName    { get; init; } = "";
@@ -24,11 +24,11 @@ public partial class TaskNotificationWindowViewModel : ObservableObject
 
     private static readonly List<(string ClassName, string DisplayName)> BuiltinTasks =
     [
-        ("StartGameTask",         "鍚姩娓告垙"),
-        ("TrailblazePowerTask",   "娓呭紑鎷撳姏"),
-        ("ReceiveRewardsTask",    "棰嗗彇濂栧姳"),
-        ("CosmicStrifeTask",      "鏃峰畤绾蜂簤"),
-        ("MissionAccomplishTask", "浠诲姟瀹屾垚"),
+        ("StartGameTask",         "启动游戏"),
+        ("TrailblazePowerTask",   "清体力"),
+        ("ReceiveRewardsTask",    "领取奖励"),
+        ("CosmicStrifeTask",      "旷宇纷争"),
+        ("MissionAccomplishTask", "任务完成"),
     ];
 
     public List<TaskNotificationItem> TaskNotifications { get; } = [];
@@ -43,7 +43,7 @@ public partial class TaskNotificationWindowViewModel : ObservableObject
         var onStart    = settingsService.Settings.Notification.OnStart;
         var onComplete = settingsService.Settings.Notification.OnCompleted;
 
-        // 鍐呯疆浠诲姟
+        // 内置任务
         foreach (var (cls, display) in BuiltinTasks)
         {
             TaskNotifications.Add(new TaskNotificationItem
@@ -55,7 +55,7 @@ public partial class TaskNotificationWindowViewModel : ObservableObject
             });
         }
 
-        // 鑷畾涔変换鍔★紙浠庡綋鍓嶉厤缃鍙栵級
+        // 自定义任务
         var customTasks = configService.TasksConfig?.CustomTasks ?? [];
         foreach (var ct in customTasks)
         {

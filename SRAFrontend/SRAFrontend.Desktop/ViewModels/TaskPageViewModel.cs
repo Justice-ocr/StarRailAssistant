@@ -41,7 +41,7 @@ public partial class TaskPageViewModel : PageViewModel
     private static readonly List<(string ClassName, string DisplayName)> AllTaskDefs =
     [
         ("StartGameTask", "启动游戏"),
-        ("TrailblazePowerTask", "清开拓力"),
+        ("TrailblazePowerTask", "清体力"),
         ("ReceiveRewardsTask", "领取奖励"),
         ("CosmicStrifeTask", "旷宇纷争"),
         ("MissionAccomplishTask", "任务完成"),
@@ -440,7 +440,7 @@ public partial class TaskPageViewModel : PageViewModel
     {
         if (!Directory.Exists(DataPath.StrategiesDir))
         {
-            _commonModel.ShowErrorToast("Error", "未找到攻略文件夹，无法刷新");
+            _commonModel.ShowErrorToast("错误", "未找到攻略文件夹，无法刷新");
             return;
         }
 
@@ -488,7 +488,7 @@ public partial class TaskPageViewModel : PageViewModel
     {
         if (SelectedTpTaskLevelIndex == 0)
         {
-            _commonModel.ShowInfoToast("Info", "请选择副本关卡后再添加任务");
+            _commonModel.ShowInfoToast("提示", "请选择副本关卡后再添加任务");
             return;
         }
 

@@ -10,7 +10,7 @@
         <StackPanel Grid.Column="0" Spacing="8">
             <suki:GlassCard>
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Script repositories" FontWeight="SemiBold" FontSize="13"/>
+                    <TextBlock Text="脚本仓库" FontWeight="SemiBold" FontSize="13"/>
                     <ListBox ItemsSource="{Binding Repos}"
                              SelectedItem="{Binding SelectedRepo}"
                              MaxHeight="120">
@@ -23,19 +23,19 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <Button Content="Add" Classes="Flat" FontSize="12"
+                        <Button Content="添加" Classes="Flat" FontSize="12"
                                 Command="{Binding OpenAddRepoCommand}"/>
-                        <Button Content="Remove" Classes="Flat" FontSize="12"
+                        <Button Content="移除" Classes="Flat" FontSize="12"
                                 Command="{Binding RemoveRepoCommand}"
                                 IsEnabled="{Binding SelectedRepo, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                     </StackPanel>
                     <StackPanel IsVisible="{Binding IsAddRepoOpen}" Spacing="6">
-                        <TextBox Text="{Binding NewRepoName}" Watermark="Repository name (optional)"/>
-                        <TextBox Text="{Binding NewRepoUrl}" Watermark="GitHub URL or repo.json URL"/>
+                        <TextBox Text="{Binding NewRepoName}" Watermark="仓库名称（可选）"/>
+                        <TextBox Text="{Binding NewRepoUrl}" Watermark="GitHub 仓库地址或 repo.json 地址"/>
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Button Content="OK" Classes="Accent" FontSize="12"
+                            <Button Content="确定" Classes="Accent" FontSize="12"
                                     Command="{Binding ConfirmAddRepoCommand}"/>
-                            <Button Content="Cancel" Classes="Flat" FontSize="12"
+                            <Button Content="取消" Classes="Flat" FontSize="12"
                                     Command="{Binding CloseAddRepoCommand}"/>
                         </StackPanel>
                     </StackPanel>
@@ -44,7 +44,7 @@
 
             <suki:GlassCard>
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Installed" FontWeight="SemiBold" FontSize="13"/>
+                    <TextBlock Text="已安装" FontWeight="SemiBold" FontSize="13"/>
                     <ItemsControl ItemsSource="{Binding InstalledScripts}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="models:ScriptManifest">
@@ -63,7 +63,7 @@
                                             <Button Classes="Flat"
                                                     FontSize="11"
                                                     Height="24" Padding="6,0"
-                                                    ToolTip.Tip="View README"
+                                                    ToolTip.Tip="查看说明"
                                                     Command="{Binding $parent[UserControl].((vm:ScriptStorePageViewModel)DataContext).OpenInstalledReadmeCommand}"
                                                     CommandParameter="{Binding}">
                                                 <TextBlock Text="README"/>
@@ -72,10 +72,10 @@
                                                     FontSize="11"
                                                     Height="24" Padding="6,0"
                                                     Foreground="OrangeRed"
-                                                    ToolTip.Tip="Uninstall"
+                                                    ToolTip.Tip="卸载"
                                                     Command="{Binding $parent[UserControl].((vm:ScriptStorePageViewModel)DataContext).UninstallScriptCommand}"
                                                     CommandParameter="{Binding}">
-                                                <TextBlock Text="Uninstall" Foreground="OrangeRed"/>
+                                                <TextBlock Text="卸载" Foreground="OrangeRed"/>
                                             </Button>
                                         </StackPanel>
                                     </Grid>
@@ -92,10 +92,10 @@
                 <Grid ColumnDefinitions="*,Auto,Auto">
                     <TextBlock Grid.Column="0" Text="{Binding StatusMessage}"
                                VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
-                    <Button Grid.Column="1" Content="Refresh" Classes="Flat"
+                    <Button Grid.Column="1" Content="刷新" Classes="Flat"
                             Command="{Binding FetchRepoScriptsCommand}"
                             IsEnabled="{Binding !IsLoading}"/>
-                    <Button Grid.Column="2" Content="Check updates" Classes="Flat"
+                    <Button Grid.Column="2" Content="检查更新" Classes="Flat"
                             Margin="6,0,0,0"
                             Command="{Binding CheckUpdatesCommand}"
                             IsEnabled="{Binding !IsLoading}"/>
@@ -120,13 +120,13 @@
                                                 <Border Background="#2080FF30" CornerRadius="4"
                                                         Padding="5,1"
                                                         IsVisible="{Binding HasUpdate}">
-                                                    <TextBlock Text="Update" FontSize="11" Foreground="#40C060"/>
+                                                    <TextBlock Text="有更新" FontSize="11" Foreground="#40C060"/>
                                                 </Border>
                                                 <Border Background="#20808080" CornerRadius="4"
                                                         Padding="5,1"
                                                         IsVisible="{Binding IsInstalled}">
                                                     <TextBlock FontSize="11" Opacity="0.7">
-                                                        <Run Text="Installed v"/>
+                                                        <Run Text="已安装 v"/>
                                                         <Run Text="{Binding InstalledVersion}"/>
                                                     </TextBlock>
                                                 </Border>
@@ -145,7 +145,7 @@
                                                     Spacing="6" VerticalAlignment="Center">
                                             <Button Content="README" Classes="Flat"
                                                     FontSize="12" Height="32" Padding="10,0"
-                                                    ToolTip.Tip="View README"
+                                                    ToolTip.Tip="查看说明"
                                                     Command="{Binding $parent[UserControl].((vm:ScriptStorePageViewModel)DataContext).OpenReadmeCommand}"
                                                     CommandParameter="{Binding}"/>
                                             <Button Classes="Accent" FontSize="12"
@@ -153,19 +153,19 @@
                                                     IsVisible="{Binding !IsInstalled}"
                                                     Command="{Binding $parent[UserControl].((vm:ScriptStorePageViewModel)DataContext).InstallScriptCommand}"
                                                     CommandParameter="{Binding}">
-                                                <TextBlock Text="Install"/>
+                                                <TextBlock Text="安装"/>
                                             </Button>
                                             <Button Classes="Accent" FontSize="12"
                                                     Height="32" Padding="14,0"
                                                     IsVisible="{Binding HasUpdate}"
                                                     Command="{Binding $parent[UserControl].((vm:ScriptStorePageViewModel)DataContext).InstallScriptCommand}"
                                                     CommandParameter="{Binding}">
-                                                <TextBlock Text="Update"/>
+                                                <TextBlock Text="更新"/>
                                             </Button>
                                             <Button FontSize="12" Height="32" Padding="14,0"
                                                     IsVisible="{Binding IsInstalled}"
                                                     IsEnabled="False" Classes="Flat">
-                                                <TextBlock Text="Installed" Opacity="0.5"/>
+                                                <TextBlock Text="已安装" Opacity="0.5"/>
                                             </Button>
                                         </StackPanel>
                                     </Grid>

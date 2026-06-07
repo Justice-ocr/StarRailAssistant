@@ -49,7 +49,7 @@ public partial class ScriptParamValueViewModel : ObservableObject
             var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(
                 new Avalonia.Platform.Storage.FolderPickerOpenOptions
                 {
-                    Title = "Select folder",
+                    Title = "选择文件夹",
                     AllowMultiple = false
                 });
             if (folders.Count > 0)
@@ -93,7 +93,7 @@ public partial class ScriptConfigWindowViewModel : ObservableObject
     public string Title { get; }
     public bool HasParams { get; }
     public string NoParamsMessage { get; private set; } =
-        "No settings.json was found. This script does not expose configurable parameters.";
+        "未找到 settings.json，此脚本没有可配置参数。";
 
     public AvaloniaList<ScriptParamGroupViewModel> ParamGroups { get; } = [];
 
@@ -103,13 +103,13 @@ public partial class ScriptConfigWindowViewModel : ObservableObject
         List<ScriptParamDef> paramDefs)
     {
         _configDir = configDir;
-        Title = $"Edit script config - {scriptId}";
+        Title = $"编辑脚本配置 - {scriptId}";
 
         if (paramDefs.Count == 0)
         {
             HasParams = false;
             NoParamsMessage =
-                "No settings.json was found. You can create config.json manually in the script folder.";
+                "未找到 settings.json。你可以在脚本目录中手动创建 config.json。";
             return;
         }
 

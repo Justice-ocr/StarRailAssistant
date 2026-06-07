@@ -14,49 +14,49 @@
         <ScrollViewer Grid.Row="0" Padding="24,20,24,16">
             <StackPanel Spacing="0">
 
-                <!-- 鏃犻厤缃?-->
+                <!-- 无配置 -->
                 <TextBlock IsVisible="{Binding !HasParams}"
                            Text="{Binding NoParamsMessage}"
                            Opacity="0.55" FontSize="13" TextWrapping="Wrap"
                            Margin="0,40,0,0" TextAlignment="Center"/>
 
-                <!-- 鍙傛暟鍒楄〃 -->
+                <!-- 参数列表 -->
                 <ItemsControl IsVisible="{Binding HasParams}"
                               ItemsSource="{Binding ParamGroups}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:ScriptParamGroupViewModel">
                             <StackPanel Margin="0,0,0,4">
 
-                                <!-- 鍒嗙粍鏍囬 -->
+                                <!-- 分组标题 -->
                                 <StackPanel IsVisible="{Binding HasGroupName}" Margin="0,12,0,8">
                                     <TextBlock Text="{Binding GroupName}"
                                                FontWeight="SemiBold" FontSize="14"/>
                                     <Separator Margin="0,4,0,0" Opacity="0.15"/>
                                 </StackPanel>
 
-                                <!-- 璇ョ粍鐨勫弬鏁?-->
+                                <!-- 分组参数 -->
                                 <ItemsControl ItemsSource="{Binding Params}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:ScriptParamValueViewModel">
                                             <StackPanel Margin="0,0,0,14" Spacing="4">
 
-                                                <!-- 鏍囩 -->
+                                                <!-- 标签 -->
                                                 <TextBlock Text="{Binding Label}"
                                                            FontSize="13"/>
-                                                <!-- 璇存槑 -->
+                                                <!-- 说明 -->
                                                 <TextBlock Text="{Binding Description}"
                                                            FontSize="12" Opacity="0.55"
                                                            TextWrapping="Wrap"
                                                            IsVisible="{Binding HasDescription}"/>
 
-                                                <!-- string / int / folder锛氱粺涓€鐢?Grid 娓叉煋锛屾祻瑙堟寜閽寜闇€鏄剧ず -->
+                                                <!-- string / int / folder -->
                                                 <Grid IsVisible="{Binding IsText}"
                                                       ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                     <TextBox Grid.Column="0"
                                                              Text="{Binding Value}"
                                                              Watermark="{Binding DefaultValue}"/>
                                                     <Button Grid.Column="1"
-                                                            Content="娴忚..."
+                                                            Content="浏览..."
                                                             IsVisible="{Binding IsFolder}"
                                                             Command="{Binding BrowseFolderCommand}"
                                                             VerticalAlignment="Center"/>
@@ -86,21 +86,21 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- 搴曢儴 -->
+        <!-- 底部 -->
         <Border Grid.Row="1"
                 BorderThickness="0,1,0,0"
                 BorderBrush="{DynamicResource SukiBorderBrush}"
                 Padding="24,12">
             <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
                 <Button Grid.Column="0"
-                        Content="鎵撳紑鐩綍" Classes="Flat" FontSize="12"
+                        Content="打开目录" Classes="Flat" FontSize="12"
                         IsVisible="{Binding HasParams}"
                         Command="{Binding OpenFolderCommand}"/>
                 <Button Grid.Column="2"
-                        Content="鍏抽棴" Classes="Flat" FontSize="12"
+                        Content="关闭" Classes="Flat" FontSize="12"
                         Click="CloseButton_Click"/>
                 <Button Grid.Column="3"
-                        Content="淇濆瓨" Classes="Accent" FontSize="12"
+                        Content="保存" Classes="Accent" FontSize="12"
                         Padding="20,0"
                         Command="{Binding SaveCommand}"
                         IsVisible="{Binding HasParams}"/>

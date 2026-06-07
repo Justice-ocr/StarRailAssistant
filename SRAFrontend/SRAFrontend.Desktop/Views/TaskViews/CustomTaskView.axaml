@@ -12,37 +12,37 @@
         <suki:GroupBox>
             <suki:GroupBox.Header>
                 <StackPanel Orientation="Horizontal" Spacing="12">
-                    <CheckBox Content="{Binding SelectedCustomTask.Name, FallbackValue=Custom task}"
+                    <CheckBox Content="{Binding SelectedCustomTask.Name, FallbackValue=自定义任务}"
                               IsChecked="{Binding SelectedCustomTask.IsEnabled}"/>
                     <Button Content="&#xE3D0;" Classes="Flat Icon" Height="20" FontSize="14"
                             Command="{Binding SingleCustomTaskCommand}"
-                            ToolTip.Tip="Run once"/>
+                            ToolTip.Tip="单次运行"/>
                 </StackPanel>
             </suki:GroupBox.Header>
 
             <ScrollViewer>
                 <StackPanel Margin="10" Spacing="16">
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                        <Label Grid.Column="0" Content="Task name" VerticalAlignment="Center"/>
+                        <Label Grid.Column="0" Content="任务名称" VerticalAlignment="Center"/>
                         <TextBox Grid.Column="1"
                                  Text="{Binding SelectedCustomTask.Name}"
-                                 Watermark="Enter task name"/>
+                                 Watermark="请输入任务名称"/>
                     </Grid>
 
                     <suki:GlassCard>
                         <StackPanel Spacing="10">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock FontWeight="Medium" Text="Select installed script"
+                                <TextBlock FontWeight="Medium" Text="选择已安装脚本"
                                            VerticalAlignment="Center"/>
-                                <Button Content="Refresh" Classes="Flat"
+                                <Button Content="刷新" Classes="Flat"
                                         FontSize="12" Height="24" Padding="8,0"
                                         Command="{Binding RefreshInstalledScriptsCommand}"
-                                        ToolTip.Tip="Refresh installed scripts"/>
+                                        ToolTip.Tip="刷新已安装脚本"/>
                             </StackPanel>
 
                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12"
                                   RowDefinitions="Auto,Auto" RowSpacing="8">
-                                <Label Grid.Row="0" Grid.Column="0" Content="Script"
+                                <Label Grid.Row="0" Grid.Column="0" Content="脚本"
                                        VerticalAlignment="Center"/>
                                 <ComboBox Grid.Row="0" Grid.Column="1"
                                           ItemsSource="{Binding InstalledScripts}"
@@ -63,7 +63,7 @@
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>
 
-                                <Label Grid.Row="1" Grid.Column="0" Content="Task"
+                                <Label Grid.Row="1" Grid.Column="0" Content="任务"
                                        VerticalAlignment="Center"
                                        IsVisible="{Binding SelectedScriptHasMultipleTasks}"/>
                                 <ComboBox Grid.Row="1" Grid.Column="1"
@@ -82,7 +82,7 @@
                             <TextBlock FontSize="12" Opacity="0.6"
                                        IsVisible="{Binding SelectedCustomTask.ScriptId, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                        TextWrapping="Wrap">
-                                <Run Text="Selected: "/>
+                                <Run Text="已选择："/>
                                 <Run Text="{Binding SelectedCustomTask.Name}"/>
                                 <Run Text=" - "/>
                                 <Run Text="{Binding SelectedCustomTask.TaskEntry}"/>
@@ -92,38 +92,38 @@
 
                     <Button IsVisible="{Binding SelectedCustomTask.ScriptId, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                             Classes="Flat"
-                            Content="Edit script config"
+                            Content="编辑脚本配置"
                             HorizontalAlignment="Left"
                             FontSize="13"
                             Height="32" Padding="14,0"
                             Command="{Binding OpenScriptConfigCommand}"/>
 
-                    <Expander Header="Advanced: manual script path" IsExpanded="False">
+                    <Expander Header="高级：手动指定脚本路径" IsExpanded="False">
                         <StackPanel Spacing="8" Margin="0,6,0,0">
                             <TextBlock FontSize="12" Opacity="0.6" TextWrapping="Wrap"
-                                       Text="If the script was not installed through a repository, select a .py file directly."/>
+                                       Text="如果脚本不是通过脚本仓库安装的，可以直接选择一个 .py 文件。"/>
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                 <TextBox Grid.Column="0"
                                          Text="{Binding SelectedCustomTask.ScriptPath}"
-                                         Watermark="Select Python script file (.py)"/>
+                                         Watermark="选择 Python 脚本文件（.py）"/>
                                 <Button Grid.Column="1" Classes="Icon"
                                         FontFamily="{StaticResource Phosphor}"
                                         Content="&#xE256;"
                                         Command="{Binding SelectCustomTaskScriptCommand}"
-                                        ToolTip.Tip="Select script file"/>
+                                        ToolTip.Tip="选择脚本文件"/>
                             </Grid>
                         </StackPanel>
                     </Expander>
 
                     <suki:GlassCard>
                         <StackPanel Spacing="4">
-                            <TextBlock FontWeight="Medium" Text="Notes"/>
+                            <TextBlock FontWeight="Medium" Text="说明"/>
                             <TextBlock TextWrapping="Wrap" Opacity="0.7" FontSize="12"
-                                       Text="Install scripts from the script store, then select them above."/>
+                                       Text="先从脚本仓库安装脚本，然后在上方选择要运行的脚本任务。"/>
                         </StackPanel>
                     </suki:GlassCard>
 
-                    <Button Content="Delete this custom task"
+                    <Button Content="删除此自定义任务"
                             Classes="Danger"
                             HorizontalAlignment="Left"
                             Command="{Binding RemoveCustomTaskCommand}"/>

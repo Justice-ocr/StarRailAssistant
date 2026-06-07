@@ -34,7 +34,7 @@
                                             Background="{DynamicResource SukiCardBackground}"
                                             Padding="12,6"
                                             Cursor="Hand"
-                                            ToolTip.Tip="Add custom task"
+                                            ToolTip.Tip="添加自定义任务"
                                             Command="{Binding $parent[ItemsControl].((viewModels:TaskPageViewModel)DataContext).AddCustomTaskCommand}">
                                         <TextBlock Text="+"
                                                    FontSize="14"
@@ -58,7 +58,7 @@
                                             Padding="12,6"
                                             Cursor="SizeWestEast"
                                             PointerPressed="TabHeader_PointerPressed"
-                                            ToolTip.Tip="Drag to reorder">
+                                            ToolTip.Tip="拖动调整顺序">
                                         <StackPanel Orientation="Horizontal" Spacing="5">
                                             <TextBlock Text="{Binding DisplayName}"
                                                        FontSize="14"
@@ -68,7 +68,7 @@
                                                     CornerRadius="3"
                                                     Background="{DynamicResource SukiAccentColor}"
                                                     VerticalAlignment="Center">
-                                                <TextBlock Text="Custom"
+                                                <TextBlock Text="自定义"
                                                            FontSize="10"
                                                            Foreground="White"
                                                            VerticalAlignment="Center"/>

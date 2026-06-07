@@ -99,7 +99,7 @@ public partial class ScriptStorePageViewModel : PageViewModel
         if (SelectedRepo == null || IsLoading) return;
 
         IsLoading = true;
-        StatusMessage = "Fetching scripts...";
+        StatusMessage = "正在获取脚本列表...";
         try
         {
             var scripts = await _scriptService.FetchRepoScriptsAsync(SelectedRepo);
@@ -115,11 +115,11 @@ public partial class ScriptStorePageViewModel : PageViewModel
                 script.HasUpdate = installed != null && script.Version != installed.Version;
             }
 
-            StatusMessage = $"{scripts.Count} scripts";
+            StatusMessage = $"共 {scripts.Count} 个脚本";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Fetch failed: {ex.Message}";
+            StatusMessage = $"获取失败：{ex.Message}";
         }
         finally
         {
@@ -133,7 +133,7 @@ public partial class ScriptStorePageViewModel : PageViewModel
         if (info == null || IsLoading) return;
 
         IsLoading = true;
-        StatusMessage = $"Installing {info.Name}...";
+        StatusMessage = $"正在安装 {info.Name}...";
         try
         {
             var progress = new Progress<(int Percent, string Message)>(p =>
@@ -143,7 +143,7 @@ public partial class ScriptStorePageViewModel : PageViewModel
             });
 
             var ok = await _scriptService.DownloadAndInstallAsync(info, progress);
-            StatusMessage = ok ? $"{info.Name} installed" : $"{info.Name} install failed";
+            StatusMessage = ok ? $"{info.Name} 已安装" : $"{info.Name} 安装失败";
             if (ok)
             {
                 RefreshInstalled();
@@ -152,7 +152,7 @@ public partial class ScriptStorePageViewModel : PageViewModel
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Install failed: {ex.Message}";
+            StatusMessage = $"安装失败：{ex.Message}";
         }
         finally
         {
@@ -168,7 +168,7 @@ public partial class ScriptStorePageViewModel : PageViewModel
 
         _scriptService.Uninstall(manifest.Id);
         RefreshInstalled();
-        StatusMessage = $"{manifest.Name} uninstalled";
+        StatusMessage = $"{manifest.Name} 已卸载";
 
         foreach (var script in RepoScripts.Where(s => s.Id == manifest.Id))
             script.InstalledVersion = null;
@@ -181,7 +181,7 @@ public partial class ScriptStorePageViewModel : PageViewModel
 
         await FetchRepoScriptsAsync();
         var updates = RepoScripts.Count(s => s.HasUpdate);
-        StatusMessage = updates > 0 ? $"{updates} updates available" : "All scripts are up to date";
+        StatusMessage = updates > 0 ? $"发现 {updates} 个可更新脚本" : "所有脚本均为最新";
     }
 
     private void RefreshInstalled()
@@ -202,11 +202,11 @@ public partial class ScriptStorePageViewModel : PageViewModel
         ShowReadmeWindow();
         try
         {
-            ReadmeContent = await _scriptService.FetchReadmeAsync(info) ?? "_No README_";
+            ReadmeContent = await _scriptService.FetchReadmeAsync(info) ?? "_暂无 README_";
         }
         catch
         {
-            ReadmeContent = "_Failed to load README_";
+            ReadmeContent = "_README 加载失败_";
         }
         finally
         {
@@ -224,7 +224,7 @@ public partial class ScriptStorePageViewModel : PageViewModel
         IsReadmeLoading = true;
         ShowReadmeWindow();
         ReadmeContent = await Task.Run(() =>
-            _scriptService.ReadLocalReadme(manifest.Id) ?? "_No README_");
+            _scriptService.ReadLocalReadme(manifest.Id) ?? "_暂无 README_");
         IsReadmeLoading = false;
     }
 

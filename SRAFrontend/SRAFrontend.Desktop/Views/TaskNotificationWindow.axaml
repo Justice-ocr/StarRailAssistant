@@ -3,7 +3,7 @@
         xmlns:vm="clr-namespace:SRAFrontend.Desktop.ViewModels"
         x:DataType="vm:TaskNotificationWindowViewModel"
         x:Class="SRAFrontend.Desktop.Views.TaskNotificationWindow"
-        Title="Task notifications"
+        Title="任务通知"
         Width="440" Height="560"
         CanResize="False"
         WindowStartupLocation="CenterOwner">
@@ -11,7 +11,7 @@
     <Grid RowDefinitions="*,Auto" Margin="20">
         <ScrollViewer Grid.Row="0">
             <StackPanel Spacing="12">
-                <TextBlock Text="Choose which tasks send notifications."
+                <TextBlock Text="选择哪些任务需要发送通知。"
                            FontSize="13"
                            Foreground="{DynamicResource SukiLowText}"/>
 
@@ -40,10 +40,10 @@
                                     <CheckBox Grid.Column="1"
                                               Margin="8,0"
                                               IsChecked="{Binding NotifyOnStart}"
-                                              Content="Start"/>
+                                              Content="开始"/>
                                     <CheckBox Grid.Column="2"
                                               IsChecked="{Binding NotifyOnComplete}"
-                                              Content="Complete"/>
+                                              Content="完成"/>
                                 </Grid>
                             </Border>
                         </DataTemplate>
@@ -55,17 +55,17 @@
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto"
               Margin="0,12,0,0">
             <TextBlock Grid.Column="0"
-                       Text="Configure notification channels in Settings."
+                       Text="通知渠道可在设置中配置。"
                        FontSize="12"
                        Foreground="{DynamicResource SukiLowText}"
                        VerticalAlignment="Center"/>
             <Button Grid.Column="1"
-                    Content="Cancel"
+                    Content="取消"
                     Classes="Flat Rounded"
                     Margin="0,0,8,0"
                     Command="{Binding CancelCommand}"/>
             <Button Grid.Column="2"
-                    Content="Save"
+                    Content="保存"
                     Classes="Rounded"
                     Command="{Binding SaveCommand}"/>
         </Grid>
