@@ -1,4 +1,6 @@
 import importlib
+import importlib.util
+import json
 import sys
 import threading
 from typing import Any
@@ -13,6 +15,7 @@ from SRACore.util import (
     sys_util,  # NOQA 有动态用法，确保被打包 # type: ignore
 )
 from SRACore.util.data_persister import load_cache, load_config
+from SRACore.util.const import AppDataDir
 from SRACore.util.errors import ThreadStoppedError
 from SRACore.util.logger import logger
 
@@ -340,7 +343,6 @@ class TaskManager:
         script_id = ct.get("ScriptId", "")
         task_entry = ct.get("TaskEntry", "main.py")
         task_class_name = ct.get("TaskClassName", "")
-        params = ct.get("Params", {})
         scripts_dir = AppDataDir / "scripts"
         script_dir = scripts_dir / script_id
         entry_path = script_dir / task_entry
@@ -354,12 +356,18 @@ class TaskManager:
             sys.path.insert(0, str(scripts_dir))
         try:
             spec = importlib.util.spec_from_file_location(module_name, entry_path)
+            if spec is None or spec.loader is None:
+                logger.error(f"无法加载自定义任务模块：{entry_path}")
+                return None
             module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
             spec.loader.exec_module(module)
             task_class = getattr(module, task_class_name)
         except Exception as e:
+            sys.modules.pop(module_name, None)
             logger.error(f"加载自定义任务 {task_class_name} 失败：{e}")
             return None
+        params = self._load_custom_task_params(ct, script_dir)
         task_config = dict(config)
         task_config['_task_params'] = params
         task_config['_task_name'] = ct.get("Name", script_id)
@@ -367,6 +375,22 @@ class TaskManager:
         # 设置自定义任务key，供on_start/on_finish通知匹配使用
         task_instance._sra_task_key = f"CustomTask_{ct.get('Id', '')}"
         return task_instance
+
+    def _load_custom_task_params(self, ct: dict, script_dir) -> dict:
+        params = {}
+        config_path = script_dir / "config.json"
+        if config_path.exists():
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    params.update(data)
+            except Exception as e:
+                logger.warning(f"读取自定义任务配置失败：{config_path}，{e}")
+        task_params = ct.get("Params", {})
+        if isinstance(task_params, dict):
+            params.update(task_params)
+        return params
 
 
     def get_task(self, config_name: str, task: str) -> BaseTask | None:
