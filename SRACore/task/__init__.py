@@ -65,21 +65,29 @@ class BaseTask(Executable, ABC):
             operator=self.operator
         )
 
+    def _task_notify_key(self) -> str:
+        return getattr(self, "_sra_task_key", self.__class__.__name__)
+
+    def _task_display_name(self) -> str:
+        if isinstance(self.config, dict):
+            return self.config.get("_task_name") or self._task_notify_key()
+        return self._task_notify_key()
+
     def on_start(self) -> None:
         on_start = self.settings.Notification.onStart
         if self._task_notify_key() in on_start:
-            self.send_notification(f"任务 {self._task_notify_key()} 开始执行。", "success")
+            self.send_notification(f"任务 {self._task_display_name()} 开始执行。", "success")
 
     def on_completed(self) -> None:
         on_complete = self.settings.Notification.onCompleted
-        if self.__class__.__name__ in on_complete:
-            self.send_notification(f"任务 {self.__class__.__name__} 执行完成。", "success")
+        if self._task_notify_key() in on_complete:
+            self.send_notification(f"任务 {self._task_display_name()} 执行完成。", "success")
 
     def on_failed(self) -> None:
         if self.operator.width != 1920 and self.operator.height != 1080:
             logger.warning(
                 f"可能的失败原因：游戏分辨率不符合要求：1920x1080，当前：{self.operator.width}x{self.operator.height}。")
-        self.send_notification(f"任务 {self.__class__.__name__} 执行失败。", "error")
+        self.send_notification(f"任务 {self._task_display_name()} 执行失败。", "error")
         try:
             self.operator.screenshot().save(f"log/screenshot/{self.__class__.__name__}_failed_{time.time()}.png")
         except Exception:

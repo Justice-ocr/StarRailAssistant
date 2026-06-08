@@ -205,10 +205,10 @@ class TaskManager:
 
         # 自定义任务支持
         raw_config = config.to_dict() if hasattr(config, 'to_dict') else {}
-        task_order = raw_config.get("TaskOrder", [])
+        task_order = raw_config.get("taskOrder", raw_config.get("TaskOrder", []))
         custom_tasks_map = {
             f"CustomTask_{ct['Id']}": ct
-            for ct in raw_config.get("CustomTasks", [])
+            for ct in raw_config.get("customTasks", raw_config.get("CustomTasks", []))
             if ct.get("IsEnabled", False)
         }
 
@@ -398,7 +398,7 @@ class TaskManager:
         if task.startswith("CustomTask_"):
             custom_tasks_map = {
                 f"CustomTask_{ct['Id']}": ct
-                for ct in raw_config.get("CustomTasks", [])
+                for ct in raw_config.get("customTasks", raw_config.get("CustomTasks", []))
             }
             ct = custom_tasks_map.get(task)
             if ct is None:
