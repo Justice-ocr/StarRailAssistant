@@ -23,6 +23,7 @@
 """
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -94,6 +95,65 @@ def collect_core_files(builder: ZipBuilder):
         builder.add(item)
 
 
+def copy_python_runtime(dist: Path):
+    if os.name != "nt":
+        return
+
+    dll_names = [
+        f"python{sys.version_info.major}{sys.version_info.minor}.dll",
+        f"python{sys.version_info.major}.dll",
+    ]
+    search_dirs = []
+    for value in (Path(sys.executable).parent, Path(sys.base_prefix), Path(sys.prefix)):
+        if value not in search_dirs:
+            search_dirs.append(value)
+
+    copied = set()
+    missing = []
+    for dll_name in dll_names:
+        dll_path = next((base / dll_name for base in search_dirs if (base / dll_name).exists()), None)
+        if dll_path is None:
+            missing.append(dll_name)
+            continue
+        shutil.copy2(dll_path, dist / dll_name)
+        copied.add(dll_name)
+
+    required_dll = dll_names[0]
+    if required_dll not in copied:
+        raise FileNotFoundError(
+            f"Required Python runtime DLL not found: {required_dll}; searched: "
+            + ", ".join(str(path) for path in search_dirs)
+        )
+    if missing:
+        print(f"  [WARN] Optional Python runtime DLLs not found: {', '.join(missing)}")
+
+    for runtime_name in ("vcruntime140.dll", "vcruntime140_1.dll"):
+        runtime_path = next((base / runtime_name for base in search_dirs if (base / runtime_name).exists()), None)
+        if runtime_path is not None:
+            shutil.copy2(runtime_path, dist / runtime_name)
+
+    for base in search_dirs:
+        dll_dir = base / "DLLs"
+        if not dll_dir.exists():
+            continue
+        for runtime_file in dll_dir.iterdir():
+            if runtime_file.suffix.lower() in (".dll", ".pyd"):
+                shutil.copy2(runtime_file, dist / runtime_file.name)
+        break
+
+
+def copy_site_packages_binaries(dist: Path):
+    suffix = f".cp{sys.version_info.major}{sys.version_info.minor}-win_amd64.pyd"
+    for file in SITE_PACKAGES_DIR.iterdir():
+        if file.is_file() and file.suffix.lower() in (".dll", ".pyd"):
+            shutil.copy2(file, dist / file.name)
+            if file.name.endswith(suffix):
+                shutil.copy2(file, dist / file.name.replace(suffix, ".pyd"))
+
+    for file in dist.rglob(f"*{suffix}"):
+        shutil.copy2(file, file.with_name(file.name.replace(suffix, ".pyd")))
+
+
 def nuitka_build(version: str):
     file_version = version.split("-")[0]
     print("Building Python program with Nuitka ...")
@@ -111,6 +171,10 @@ def nuitka_build(version: str):
         "--assume-yes-for-downloads",
         "--output-filename=SRA-cli",
         "--include-module=selenium.webdriver.common.action_chains",
+        "--include-module=win32gui",
+        "--include-module=win32ui",
+        "--include-module=win32con",
+        "--include-module=win32crypt",
         "--remove-output",
         "main.py",
     ]
@@ -123,6 +187,8 @@ def nuitka_build(version: str):
 def copy_core_resources(dist: Path):
     print("Copying resources ...")
     dist.mkdir(parents=True, exist_ok=True)
+    copy_python_runtime(dist)
+    copy_site_packages_binaries(dist)
     shutil.copy2(ROOT_PATH / "LICENSE", dist / "LICENSE")
     shutil.copy2(ROOT_PATH / "README.md", dist / "README.md")
     # shutil.copy2(ROOT_PATH / "requirements.txt", dist / "requirements.txt")

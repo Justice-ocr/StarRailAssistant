@@ -127,6 +127,9 @@ public partial class ControlPanelViewModel : ViewModelBase
             return;
         }
         Cache.ConfigNames.Add(NewConfigName);
+        _cacheService.SaveCache();
+        _configService.TasksConfig = new TasksConfig { Name = NewConfigName };
+        _configService.Save();
         NewConfigName = "";
     }
 
@@ -146,5 +149,6 @@ public partial class ControlPanelViewModel : ViewModelBase
         if (Cache.ConfigNames.Count == 1) return;
         Cache.ConfigNames.RemoveAt(Cache.CurrentConfigIndex);
         Cache.CurrentConfigIndex = 0;
+        _cacheService.SaveCache();
     }
 }

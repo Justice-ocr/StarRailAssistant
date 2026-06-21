@@ -160,17 +160,20 @@ public partial class TaskPageViewModel : PageViewModel
                     {
                         var id = c.Replace("CustomTask_", "");
                         var entry = CurrentConfig.CustomTasks.FirstOrDefault(e => e.Id == id);
-                        return (c, entry?.Name ?? "自定义任务", true);
+                        return (c, entry?.Name ?? "自定义任务", entry?.IsEnabled ?? true);
                     }
 
-                    return (c, AllTaskDefs.FirstOrDefault(d => d.ClassName == c).DisplayName, true);
+                    return (c, AllTaskDefs.FirstOrDefault(d => d.ClassName == c).DisplayName, IsBuiltinTaskEnabled(c));
                 })
                 .Where(t => !string.IsNullOrEmpty(t.Item2))
                 .ToList();
             var enabledSet = new HashSet<string>(enabledMiddle.Select(t => t.c));
             var disabledMiddle = middleDefs.Where(d => !enabledSet.Contains(d.ClassName))
                 .Select(d => (d.ClassName, d.DisplayName, false));
-            middleItems = enabledMiddle.Concat(disabledMiddle).ToList();
+            var missingCustomTasks = CurrentConfig.CustomTasks
+                .Select(t => ("CustomTask_" + t.Id, t.Name, t.IsEnabled))
+                .Where(t => !enabledSet.Contains(t.Item1));
+            middleItems = enabledMiddle.Concat(disabledMiddle).Concat(missingCustomTasks).ToList();
         }
         else
         {
@@ -180,11 +183,11 @@ public partial class TaskPageViewModel : PageViewModel
                 var enabled = origIdx >= 0 && origIdx < CurrentConfig.EnabledTasks.Count &&
                               CurrentConfig.EnabledTasks[origIdx];
                 return (d.ClassName, d.DisplayName, enabled);
-            }).ToList();
+            }).Concat(CurrentConfig.CustomTasks.Select(t => ("CustomTask_" + t.Id, t.Name, t.IsEnabled))).ToList();
         }
 
         var firstEnabled = CurrentConfig.TaskOrder.Count > 0
-            ? CurrentConfig.TaskOrder.Contains(FixedFirstTask)
+            ? StartGameConfig.IsEnabled
             : CurrentConfig.EnabledTasks.ElementAtOrDefault(0);
         TaskOrderList.Add(new TaskOrderItem
         {
@@ -209,7 +212,7 @@ public partial class TaskPageViewModel : PageViewModel
         }
 
         var lastEnabled = CurrentConfig.TaskOrder.Count > 0
-            ? CurrentConfig.TaskOrder.Contains(FixedLastTask)
+            ? MissionAccomplishedConfig.IsEnabled
             : CurrentConfig.EnabledTasks.ElementAtOrDefault(4);
         TaskOrderList.Add(new TaskOrderItem
         {
@@ -222,7 +225,7 @@ public partial class TaskPageViewModel : PageViewModel
         TaskOrderList.Add(new TaskOrderItem { ClassName = "__add__", DisplayName = "+", IsFixed = true, IsAddButton = true });
 
         foreach (var item in TaskOrderList)
-            item.PropertyChanged += (_, _) => SyncTaskOrderToConfig();
+            WatchTaskOrderItem(item);
 
         SyncTaskOrderToConfig();
         if (TaskOrderList.Count > 0) SelectTask(TaskOrderList[0].ClassName);
@@ -231,11 +234,47 @@ public partial class TaskPageViewModel : PageViewModel
     private TaskOrderItem? GetTaskItem(string className) =>
         TaskOrderList.FirstOrDefault(t => t.ClassName == className);
 
-    private void SyncTaskOrderToConfig()
+    private void WatchTaskOrderItem(TaskOrderItem item) =>
+        item.PropertyChanged += OnTaskOrderItemPropertyChanged;
+
+    private void OnTaskOrderItemPropertyChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName != nameof(TaskOrderItem.IsEnabled)) return;
+        SyncTaskOrderToConfig(save: true);
+    }
+
+    private bool IsBuiltinTaskEnabled(string className) => className switch
+    {
+        "StartGameTask" => StartGameConfig.IsEnabled,
+        "TrailblazePowerTask" => TrailblazePowerConfig.IsEnabled,
+        "ReceiveRewardsTask" => ReceiveRewardsConfig.IsEnabled,
+        "CosmicStrifeTask" => CosmicStrifeConfig.IsEnabled,
+        "MissionAccomplishTask" => MissionAccomplishedConfig.IsEnabled,
+        _ => false
+    };
+
+    private void SyncEnabledTasksToLegacyList()
+    {
+        var enabledTasks = new[]
+        {
+            StartGameConfig.IsEnabled,
+            TrailblazePowerConfig.IsEnabled,
+            ReceiveRewardsConfig.IsEnabled,
+            CosmicStrifeConfig.IsEnabled,
+            MissionAccomplishedConfig.IsEnabled
+        };
+
+        CurrentConfig.EnabledTasks.Clear();
+        CurrentConfig.EnabledTasks.AddRange(enabledTasks);
+    }
+
+    private void SyncTaskOrderToConfig(bool save = false)
     {
         CurrentConfig.TaskOrder.Clear();
-        foreach (var item in TaskOrderList.Where(i => !i.IsAddButton && i.IsEnabled))
+        foreach (var item in TaskOrderList.Where(i => !i.IsAddButton))
             CurrentConfig.TaskOrder.Add(item.ClassName);
+        SyncEnabledTasksToLegacyList();
+        if (save) _configService.Save();
     }
 
     public void SelectTask(string className)
@@ -353,12 +392,13 @@ public partial class TaskPageViewModel : PageViewModel
             IsCustom = true,
             OriginalIndex = -1
         };
-        newItem.PropertyChanged += (_, _) => SyncTaskOrderToConfig();
+        WatchTaskOrderItem(newItem);
         var lastFixed = TaskOrderList.FirstOrDefault(t => t.ClassName == FixedLastTask);
         var insertPos = lastFixed != null ? TaskOrderList.IndexOf(lastFixed) : TaskOrderList.Count;
         TaskOrderList.Insert(insertPos, newItem);
         SyncTaskOrderToConfig();
         SelectTask(className);
+        _configService.Save();
     }
 
     [RelayCommand]
@@ -371,6 +411,7 @@ public partial class TaskPageViewModel : PageViewModel
         CurrentConfig.CustomTasks.Remove(SelectedCustomTask);
         SyncTaskOrderToConfig();
         if (TaskOrderList.Count > 0) SelectTask(TaskOrderList[0].ClassName);
+        _configService.Save();
     }
 
     public void MoveTaskToIndex(TaskOrderItem item, int targetIndex)
@@ -383,7 +424,7 @@ public partial class TaskPageViewModel : PageViewModel
 
         TaskOrderList.RemoveAt(currentIndex);
         TaskOrderList.Insert(targetIndex, item);
-        SyncTaskOrderToConfig();
+        SyncTaskOrderToConfig(save: true);
     }
 
     [RelayCommand]
@@ -420,6 +461,7 @@ public partial class TaskPageViewModel : PageViewModel
         if (files.Count == 0) return;
         SelectedCustomTask.ScriptPath = files[0].Path.LocalPath;
         OnPropertyChanged(nameof(SelectedCustomTask));
+        _configService.Save();
     }
 
     [RelayCommand]

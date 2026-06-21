@@ -55,6 +55,7 @@ public class SettingsController(SettingsService settingsService, ILogger<Setting
             return BadRequest(new { message = "No valid settings were updated" });
 
         logger.LogInformation("Updated settings: {Fields}", string.Join(", ", updated));
+        settingsService.Save();
         return Ok(new { updated });
     }
 

@@ -43,6 +43,9 @@ public class ConfigsController(ConfigService configService, CacheService cacheSe
             return Conflict("Config name already exists");
 
         cacheService.Cache.ConfigNames.Add(configName);
+        cacheService.SaveCache();
+        configService.TasksConfig = new TasksConfig { Name = configName };
+        configService.Save();
         return Ok(configName);
     }
 
@@ -70,6 +73,7 @@ public class ConfigsController(ConfigService configService, CacheService cacheSe
         if (!cacheService.Cache.ConfigNames.Remove(configName))
             return NotFound();
 
+        cacheService.SaveCache();
         return Ok(configName);
     }
 }
