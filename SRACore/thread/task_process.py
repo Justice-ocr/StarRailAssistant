@@ -1,6 +1,4 @@
 import importlib
-import importlib.util
-import json
 import sys
 import threading
 from typing import Any
@@ -10,12 +8,12 @@ from SRACore.models.app_settings import AppSettings
 from SRACore.notification import try_send_notification
 from SRACore.operators.ioperator import IOperator
 from SRACore.task import BaseTask, get_task_classes
+from SRACore.task.custom_task import get_custom_tasks, is_custom_task_name, load_custom_task
 from SRACore.util import (
     encryption,  # NOQA 有动态用法，确保被打包 # type: ignore
     sys_util,  # NOQA 有动态用法，确保被打包 # type: ignore
 )
 from SRACore.util.data_persister import load_cache, load_config
-from SRACore.util.const import AppDataDir
 from SRACore.util.errors import ThreadStoppedError
 from SRACore.util.logger import logger
 
@@ -209,37 +207,40 @@ class TaskManager:
         # 自定义任务支持
         raw_config = config.to_dict() if hasattr(config, 'to_dict') else {}
         task_order = raw_config.get("taskOrder", raw_config.get("TaskOrder", []))
-        custom_tasks_map = {
-            f"CustomTask_{ct['Id']}": ct
-            for ct in raw_config.get("customTasks", raw_config.get("CustomTasks", []))
-            if ct.get("IsEnabled", False)
-        }
-
         if task_order:
-            builtin_name_to_class = {cls.__name__: cls for cls in self.task_list}
-            for task_name in task_order:
-                if task_name in custom_tasks_map:
-                    ct = custom_tasks_map[task_name]
-                    try:
-                        task_instance = self._load_custom_task(ct, operator, raw_config)
-                        if task_instance:
-                            tasks.append(task_instance)
-                    except Exception as e:
-                        logger.exception(Resource.task_instantiateFailed(task_name, str(e)))
-                elif task_name in builtin_name_to_class:
-                    index = list(self.task_list).index(builtin_name_to_class[task_name])
-                    if index < len(task_select) and task_select[index]:
-                        try:
-                            tasks.append(self.task_list[index](operator, config))
-                        except Exception as e:
-                            logger.exception(Resource.task_instantiateFailed(index, str(e)))
-        else:
-            for index, is_select in enumerate(task_select):
-                if is_select and index < len(self.task_list):
-                    try:
-                        tasks.append(self.task_list[index](operator, config))
-                    except Exception as e:
-                        logger.exception(Resource.task_instantiateFailed(index, str(e)))
+            return self._build_ordered_tasks(task_order, task_select, operator, config, raw_config)
+
+        for index, is_select in enumerate(task_select):
+            if is_select and index < len(self.task_list):
+                try:
+                    tasks.append(self.task_list[index](operator, config))
+                except Exception as e:
+                    logger.exception(Resource.task_instantiateFailed(index, str(e)))
+        return tasks
+
+    def _build_ordered_tasks(self, task_order, task_select, operator, config, raw_config) -> list[BaseTask]:
+        tasks = []
+        builtin_name_to_index = {cls.__name__: index for index, cls in enumerate(self.task_list)}
+        custom_tasks_map = get_custom_tasks(raw_config, enabled_only=True)
+
+        for task_name in task_order:
+            if task_name in custom_tasks_map:
+                try:
+                    task_instance = load_custom_task(custom_tasks_map[task_name], operator, raw_config)
+                    if task_instance:
+                        tasks.append(task_instance)
+                except Exception as e:
+                    logger.exception(Resource.task_instantiateFailed(task_name, str(e)))
+                continue
+
+            index = builtin_name_to_index.get(task_name)
+            if index is None or index >= len(task_select) or not task_select[index]:
+                continue
+
+            try:
+                tasks.append(self.task_list[index](operator, config))
+            except Exception as e:
+                logger.exception(Resource.task_instantiateFailed(index, str(e)))
         return tasks
 
     def run_task(self, task: int | str, config: str | None = None) -> bool:
@@ -294,105 +295,6 @@ class TaskManager:
         finally:
             logger.debug("[Done]")
 
-    def get_task(self, config: str, task: str) -> BaseTask | None:
-        """
-        根据配置名称和任务索引或名称获取单个任务实例。
-
-        Args:
-            config (str): 配置名称
-            task ( str): 任务索引或任务类名称（str）
-
-        Returns:
-            BaseTask: 任务实例
-
-        Raises:
-            ValueError: 如果任务未找到或配置加载失败
-        """
-        # 根据参数类型获取任务类
-        task_class = None
-        if task.isdecimal():
-            index = int(task)
-            if 0 <= index < len(self.task_list):
-                task_class = self.task_list[index]
-        else:
-            for cls in self.task_list:
-                if cls.__name__.lower() == task.lower():
-                    task_class = cls
-                    break
-            else:
-                task_class = importlib.import_module(f"tasks.{task}").__getattribute__(task)
-        if task_class is None:
-            return None
-        try:
-            # 加载指定配置
-            config = load_config(config)
-            if config is None:
-                return None
-            print_config = config.to_dict()
-            print_config["startGame"]["password"] = "******"
-            print_config["startGame"]["username"] = "******"
-            logger.debug('config: ' + str(print_config))
-            # 实例化任务类
-            operator = self.get_operator()
-            return task_class(operator, config)
-        except Exception as e:
-            logger.error(Resource.task_instantiateFailed(task, f'{e.__class__.__name__}: {e}'))
-            return None
-
-    def _load_custom_task(self, ct: dict, operator, config: dict):
-        script_id = ct.get("ScriptId", "")
-        task_entry = ct.get("TaskEntry", "main.py")
-        task_class_name = ct.get("TaskClassName", "")
-        scripts_dir = AppDataDir / "scripts"
-        script_dir = scripts_dir / script_id
-        entry_path = script_dir / task_entry
-        if not entry_path.exists():
-            logger.error(f"自定义任务脚本不存在：{entry_path}")
-            return None
-        module_name = f"_sra_script_{script_id}_{task_entry.replace('.py', '')}"
-        if str(script_dir) not in sys.path:
-            sys.path.insert(0, str(script_dir))
-        if str(scripts_dir) not in sys.path:
-            sys.path.insert(0, str(scripts_dir))
-        try:
-            spec = importlib.util.spec_from_file_location(module_name, entry_path)
-            if spec is None or spec.loader is None:
-                logger.error(f"无法加载自定义任务模块：{entry_path}")
-                return None
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module
-            spec.loader.exec_module(module)
-            task_class = getattr(module, task_class_name)
-        except Exception as e:
-            sys.modules.pop(module_name, None)
-            logger.error(f"加载自定义任务 {task_class_name} 失败：{e}")
-            return None
-        params = self._load_custom_task_params(ct, script_dir)
-        task_config = dict(config)
-        task_config['_task_params'] = params
-        task_config['_task_name'] = ct.get("Name", script_id)
-        task_instance = task_class(operator, task_config)
-        # 设置自定义任务key，供on_start/on_finish通知匹配使用
-        task_instance._sra_task_key = f"CustomTask_{ct.get('Id', '')}"
-        return task_instance
-
-    def _load_custom_task_params(self, ct: dict, script_dir) -> dict:
-        params = {}
-        config_path = script_dir / "config.json"
-        if config_path.exists():
-            try:
-                with open(config_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                if isinstance(data, dict):
-                    params.update(data)
-            except Exception as e:
-                logger.warning(f"读取自定义任务配置失败：{config_path}，{e}")
-        task_params = ct.get("Params", {})
-        if isinstance(task_params, dict):
-            params.update(task_params)
-        return params
-
-
     def get_task(self, config_name: str, task: str) -> BaseTask | None:
         """
         根据配置名称和任务索引或名称获取单个任务实例。
@@ -419,18 +321,13 @@ class TaskManager:
         operator = self.get_operator()
 
         # 自定义任务
-        if task.startswith("CustomTask_"):
-            custom_tasks_map = {
-                f"CustomTask_{ct['Id']}": ct
-                for ct in raw_config.get("customTasks", raw_config.get("CustomTasks", []))
-            }
-            ct = custom_tasks_map.get(task)
-            if ct is None:
-                logger.error(f"未找到自定义任务：{task}")
+        if is_custom_task_name(task):
+            custom_task = get_custom_tasks(raw_config).get(task)
+            if custom_task is None:
+                logger.error(f"Custom task not found: {task}")
                 return None
-            return self._load_custom_task(ct, operator, raw_config)
+            return load_custom_task(custom_task, operator, raw_config)
 
-        # 根据参数类型获取任务类
         task_class = None
         if task.isdecimal():
             index = int(task)
