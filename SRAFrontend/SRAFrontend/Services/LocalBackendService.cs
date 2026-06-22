@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
@@ -111,9 +112,14 @@ public abstract class LocalBackendService(ILogger<LocalBackendService> logger)
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
+                StandardInputEncoding = new UTF8Encoding(false),
+                StandardOutputEncoding = new UTF8Encoding(false),
+                StandardErrorEncoding = new UTF8Encoding(false),
                 CreateNoWindow = true,
                 WorkingDirectory = WorkingDirectory
             };
+            _backendProcess.StartInfo.EnvironmentVariables["PYTHONUTF8"] = "1";
+            _backendProcess.StartInfo.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
             _backendProcess.EnableRaisingEvents = true; // 启用Exited事件
             _backendProcess.OutputDataReceived += OnBackendProcessOutputDataReceived;
             _backendProcess.ErrorDataReceived += OnBackendProcessErrorDataReceived;

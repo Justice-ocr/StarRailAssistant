@@ -23,6 +23,7 @@
 """
 
 import json
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -93,6 +94,35 @@ def collect_core_files(builder: ZipBuilder):
     """收集 Core 层文件：Nuitka 产物 + 资源文件。"""
     for item in DIST_DIR.iterdir():
         builder.add(item)
+
+
+def verify_python_dependencies():
+    required_modules = [
+        "cmd2",
+        "cv2",
+        "loguru",
+        "PIL",
+        "psutil",
+        "pyautogui",
+        "pyclipper",
+        "pyperclip",
+        "pynput",
+        "rapidocr_onnxruntime",
+        "rich",
+        "selenium",
+        "shapely",
+        "win32api",
+        "win32gui",
+        "win32ui",
+        "yaml",
+    ]
+    missing_modules = [name for name in required_modules if importlib.util.find_spec(name) is None]
+    if missing_modules:
+        raise RuntimeError(
+            "Missing Python dependencies for packaging: "
+            + ", ".join(missing_modules)
+            + f"\nInstall them with: {sys.executable} -m pip install -r requirements.txt"
+        )
 
 
 def copy_python_runtime(dist: Path):
@@ -227,6 +257,7 @@ if __name__ == "__main__":
     with (ROOT_PATH / "ChangeLog2.0.md").open(encoding="utf-8") as f:
         changelog = f.read()
 
+    verify_python_dependencies()
     nuitka_build(version)
     copy_core_resources(DIST_DIR)
 

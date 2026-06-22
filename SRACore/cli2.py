@@ -2,6 +2,7 @@ import argparse
 from re import S
 
 import cmd2
+from cmd2.parsing import Statement
 from loguru import logger
 from rich.text import Text
 
@@ -41,6 +42,53 @@ class SRACli(cmd2.Cmd):
         self.event_listener = KeyboardListener()
         self.event_listener.register_key_event(stop_hotkey, self._task_stop)
         self.event_listener.start()
+
+    @staticmethod
+    def _clean_command_name(command: str) -> str:
+        return SRACli._strip_command_bom(command).strip()
+
+    @staticmethod
+    def _strip_command_bom(command: str) -> str:
+        return command.lstrip("\ufeff\ufeff\ufffe\u00ef\u00bb\u00bf")
+
+    def _read_command_line(self, prompt: str) -> str:
+        return self._strip_command_bom(super()._read_command_line(prompt))
+
+    def _input_line_to_statement(self, line: str, *, orig_rl_history_length: int | None = None):
+        return super()._input_line_to_statement(
+            self._strip_command_bom(line),
+            orig_rl_history_length=orig_rl_history_length,
+        )
+
+    def onecmd_plus_hooks(self, line: str, *args, **kwargs) -> bool:
+        return super().onecmd_plus_hooks(self._strip_command_bom(line), *args, **kwargs)
+
+    def onecmd(self, statement, *, add_to_history: bool = True) -> bool:
+        if isinstance(statement, str):
+            statement = self._strip_command_bom(statement)
+        elif statement.command.startswith(("\ufeff", "\ufffe", "\u00ef")):
+            statement = self._rebuild_statement_without_bom(statement)
+        return super().onecmd(statement, add_to_history=add_to_history)
+
+    @classmethod
+    def _rebuild_statement_without_bom(cls, statement: Statement) -> Statement:
+        raw = cls._strip_command_bom(statement.raw)
+        command = cls._strip_command_bom(statement.command)
+        args = statement.args
+        if raw and command:
+            args = raw[len(command):].lstrip()
+        return Statement(
+            args,
+            raw=raw,
+            command=command,
+            arg_list=statement.arg_list,
+            multiline_command=statement.multiline_command,
+            terminator=statement.terminator,
+            suffix=statement.suffix,
+            pipe_to=statement.pipe_to,
+            output=statement.output,
+            output_to=statement.output_to,
+        )
 
     # region 任务管理
     @staticmethod
@@ -110,7 +158,7 @@ class SRACli(cmd2.Cmd):
         """Run specified tasks, will block current command line until tasks complete"""
         self.poutput(Resource.cli_run_started)
         try:
-            self.task_manager.run(*args.config)
+            self.task_manager.run(*[self._clean_command_name(cfg) for cfg in args.config])
         except KeyboardInterrupt:
             self.task_manager.request_stop()
 
@@ -127,7 +175,10 @@ class SRACli(cmd2.Cmd):
         """Run a single specified task, will block current command line until task complete"""
         self.poutput(Resource.cli_run_started)
         try:
-            self.task_manager.run_task(args.task, args.config)
+            self.task_manager.run_task(
+                self._clean_command_name(args.task),
+                self._clean_command_name(args.config) if args.config else None,
+            )
         except KeyboardInterrupt:
             self.task_manager.request_stop()
 

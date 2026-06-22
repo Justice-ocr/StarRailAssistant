@@ -6,8 +6,13 @@ from SRACore.localization import Resource
 from SRACore.util.const import VERSION
 from SRACore.util.data_persister import load_app_settings
 
+COMMAND_ARGUMENT_NAMES = ("--command", "-c", "--execute", "-e")
+
 
 def main():
+    if sys.platform == "win32":
+        os.environ.setdefault("PYTHONUTF8", "1")
+        os.environ.setdefault("PYTHONIOENCODING", "utf-8")
     settings = load_app_settings()
     language: int = settings.Display.language
     Resource.set_language(language)
@@ -32,9 +37,11 @@ def main():
     logger.debug(f"cwd: {os.getcwd()}")
 
     if args.command:
-        for cmd in args.command:
+        cleaned_commands = [cmd.lstrip("\ufeff") for cmd in args.command]
+        remove_first_argument(COMMAND_ARGUMENT_NAMES)
+        for cmd in cleaned_commands:
             sys.argv.remove(cmd)  # 移除命令参数, 避免重复执行
-        cmd_str = " ".join(args.command).replace('&', '+')
+        cmd_str = " ".join(cleaned_commands).replace('&', '+')
         commands = cmd_str.split('+')
         for cmd in commands:
             sys.argv.append(cmd)
@@ -81,6 +88,12 @@ def setup_argumentparser(parser: argparse.ArgumentParser) -> None:
         action='store_true',
         help="Do not require admin privileges"
     )
+
+def remove_first_argument(names: tuple[str, ...]) -> None:
+    for name in names:
+        if name in sys.argv:
+            sys.argv.remove(name)
+            return
 
 def restart_as_admin():
     """
