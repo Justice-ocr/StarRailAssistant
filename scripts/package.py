@@ -23,6 +23,7 @@
 """
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -156,7 +157,10 @@ def package_lite(version: str):
 
 def build_webui():
     print("Building WebUI ...")
-    result = subprocess.run(["pnpm", "build", "--ignore-workspace", "--no-verify-store-integrity"], cwd=WEBUI_FRONTEND_PATH)
+    cmd = ["pnpm", "build"]
+    if os.name == "nt":
+        cmd = ["cmd", "/c", *cmd]
+    result = subprocess.run(cmd, cwd=WEBUI_FRONTEND_PATH)
     if result.returncode != 0:
         print(f"[ERROR] WebUI build failed (exit code: {result.returncode})")
         sys.exit(1)
