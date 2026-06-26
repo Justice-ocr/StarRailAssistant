@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 # 基础的常量定义
-VERSION = "2.17.0"  # 版本号
+VERSION = "2.18.0-beta.1"  # 版本号
 CORE = f"{VERSION} on {sys.platform}"  # 核心版本信息
 
 AppRootDir = Path(__file__).parent.parent.parent.absolute()
@@ -27,3 +27,6 @@ else:
     AppDataDir = Path.home() / ".config" / "SRA"
 ConfigsDir = AppDataDir / "configs"
 CacheDir = AppDataDir / "cache"
+LogsDir = Path("log")
+LogsOCRDir = LogsDir / "ocr"
+LogsScreenshotDir = LogsDir / "screenshot"
