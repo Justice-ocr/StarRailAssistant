@@ -73,7 +73,7 @@ jobs:
           pip install nuitka
           pip install -r requirements.txt
           cd SRAFrontend\webui-frontend
-          pnpm install --ignore-workspace
+          pnpm install
 
       - name: Lint with flake8
         run: |
