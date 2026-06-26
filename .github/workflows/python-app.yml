@@ -44,6 +44,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Install .NET 10.0
         uses: actions/setup-dotnet@v3
         with:
@@ -64,6 +69,8 @@ jobs:
           pip install flake8 pytest
           pip install nuitka
           pip install -r requirements.txt
+          cd SRAFrontend\webui-frontend
+          pnpm install --ignore-workspace
 
       - name: Lint with flake8
         run: |

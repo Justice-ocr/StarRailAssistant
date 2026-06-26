@@ -32,6 +32,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 ROOT_PATH = Path(__file__).resolve().parent.parent
 DESKTOP_WIN_X64_PUBLISH_PATH = ROOT_PATH / "SRAFrontend" / "SRAFrontend.Desktop" / "bin" / "Release" / "net10.0" / "win-x64" / "publish"
 SERVER_WIN_X64_PUBLISH_PATH = ROOT_PATH / "SRAFrontend" / "SRAFrontend.Server" / "bin" / "Release" / "net10.0" / "win-x64" / "publish"
+WEBUI_FRONTEND_PATH = ROOT_PATH / "SRAFrontend" / "webui-frontend"
 DIST_DIR = ROOT_PATH / "main.dist"
 PYTHON31210_URL = "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip"
 GET_PIP_URL = "https://bootstrap.pypa.io/get-pip.py"
@@ -153,6 +154,15 @@ def package_lite(version: str):
     print(f"[OK] Lite package: {lite_zip_path.name}")
 
 
+def build_webui():
+    print("Building WebUI ...")
+    result = subprocess.run(["pnpm", "build", "--ignore-workspace", "--no-verify-store-integrity"], cwd=WEBUI_FRONTEND_PATH)
+    if result.returncode != 0:
+        print(f"[ERROR] WebUI build failed (exit code: {result.returncode})")
+        sys.exit(1)
+    print("[OK] WebUI built successfully")
+
+
 if __name__ == "__main__":
     with (ROOT_PATH / "package.json").open(encoding="utf-8") as f:
         data = json.load(f)
@@ -161,6 +171,7 @@ if __name__ == "__main__":
     with (ROOT_PATH / "ChangeLog2.0.md").open(encoding="utf-8") as f:
         changelog = f.read()
 
+    build_webui()
     nuitka_build(version)
     copy_core_resources(DIST_DIR)
 

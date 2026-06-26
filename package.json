@@ -3,7 +3,7 @@
   "version": "2.18.0-beta.1",
   "scripts": {
     "dev": "python main.py",
-    "build": "dotnet publish -c Release -r win-x64 SRAFrontend/SRAFrontend.sln && python scripts/package.py",
+    "build": "cd SRAFrontend/webui-frontend && pnpm build && cd ../.. && dotnet publish -c Release -r win-x64 SRAFrontend/SRAFrontend.sln && python scripts/package.py",
     "install": "pip install -r requirements.txt",
     "frontend": "dotnet run --project SRAFrontend/SRAFrontend.Desktop/SRAFrontend.Desktop.csproj",
     "pyl10nc": "python scripts/pyl10nc/__main__.py SRACore/localization/resource.toml",
