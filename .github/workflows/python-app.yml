@@ -32,7 +32,7 @@ jobs:
     steps:
       - name: Repo Check
         run: |
-          if [[ "$GITHUB_REPOSITORY" != "Shasnow/StarRailAssistant" ]]; then
+          if [[ "$GITHUB_REPOSITORY" != "Justice-ocr/StarRailAssistant" ]]; then
             echo "When forking this repository to make your own builds, you have to adjust this check."
             exit 1
           fi
@@ -190,7 +190,7 @@ jobs:
             echo "release_exists=true" >> $GITHUB_OUTPUT
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Create release
         id: create_release
         if: steps.check_if_release_exists.outputs.release_exists == 'false'
@@ -205,7 +205,7 @@ jobs:
           \`\`\`本release通过GitHub Actions自动构建\`\`\`"
           gh release create "$TAGNAME" --target "main" --title "$NAME" --notes "$NOTES" --prerelease artifacts/*
         env:
-          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Update release
         if: steps.check_if_release_exists.outputs.release_exists == 'true'
         run: |
@@ -220,7 +220,7 @@ jobs:
           gh release delete "$TAGNAME" --yes
           gh release create "$TAGNAME" --target "main" --title "$NAME" --notes "$NOTES" --prerelease artifacts/*
         env:
-          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 #      - name: Trigger MirrorChyanUploading
 #        shell: bash
