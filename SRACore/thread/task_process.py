@@ -7,6 +7,7 @@ from SRACore.localization import Resource
 from SRACore.models.app_settings import AppSettings
 from SRACore.notification import try_send_notification
 from SRACore.operators.ioperator import IOperator
+from SRACore.runtime.shared_runtime import RuntimeSession
 from SRACore.task import BaseTask, get_task_classes
 from SRACore.task.custom_task import get_custom_tasks, is_custom_task_name, load_custom_task
 from SRACore.util import (
@@ -30,6 +31,8 @@ class TaskManager:
         """
         self.log_queue = None
         self._stop_event = threading.Event()
+        self._runtime_watcher_stop = threading.Event()
+        self._runtime_watcher_thread: threading.Thread | None = None
         self._thread: threading.Thread | None = None
         self.task_list: list[type[BaseTask]] = get_task_classes()
         self.settings: AppSettings = settings
@@ -38,6 +41,26 @@ class TaskManager:
     def request_stop(self) -> None:
         """请求停止当前任务执行。"""
         self._stop_event.set()
+
+    def _start_runtime_watcher(self, session: RuntimeSession) -> None:
+        self._runtime_watcher_stop.clear()
+
+        def watch() -> None:
+            while not self._runtime_watcher_stop.wait(1.0):
+                session.heartbeat()
+                if session.stop_requested():
+                    logger.warning(Resource.cli_task_requestStop)
+                    session.mark_stopping()
+                    self.request_stop()
+
+        self._runtime_watcher_thread = threading.Thread(target=watch, daemon=True)
+        self._runtime_watcher_thread.start()
+
+    def _stop_runtime_watcher(self) -> None:
+        self._runtime_watcher_stop.set()
+        if self._runtime_watcher_thread is not None:
+            self._runtime_watcher_thread.join(timeout=2.0)
+            self._runtime_watcher_thread = None
 
     def is_thread_running(self) -> bool:
         """检查任务线程是否正在运行"""
@@ -114,6 +137,11 @@ class TaskManager:
         3. 处理任务中断或失败的情况
         """
         self._stop_event.clear()
+        session = RuntimeSession(owner="sra-cli", mode="run", config_names=[str(arg) for arg in args])
+        if not session.start():
+            logger.warning(Resource.cli_task_taskAlreadyRunning)
+            return
+        self._start_runtime_watcher(session)
         logger.debug('[Start]')
         try:
             if len(args)==0:
@@ -125,6 +153,9 @@ class TaskManager:
 
             last_operator = None
             for config_name in config_list:
+                if self._stop_event.is_set():
+                    session.mark_stopping()
+                    return
                 logger.info(Resource.task_currentConfig(config_name))
 
                 # 获取当前配置需要执行的任务列表
@@ -138,6 +169,9 @@ class TaskManager:
 
                 # 依次执行任务
                 for task in tasks_to_run:
+                    if self._stop_event.is_set():
+                        session.mark_stopping()
+                        return
                     try:
                         # 运行任务，如果返回 False 表示任务失败
                         logger.debug('running task: ' + str(task))
@@ -169,6 +203,9 @@ class TaskManager:
             # 捕获线程主循环中的异常（如配置加载失败）
             logger.exception(Resource.task_managerCrashed(str(e)))
         finally:
+            final_state = "stopped" if self._stop_event.is_set() else "completed"
+            self._stop_runtime_watcher()
+            session.finish(final_state)
             logger.debug("[Done]")
 
     def get_tasks(self, config_name: str) -> list[BaseTask]:
@@ -265,12 +302,18 @@ class TaskManager:
             return False
         task_name = str(task)
         logger.debug(f"run single task: config={config}, task={task}")
+        session = RuntimeSession(owner="sra-cli", mode="single", config_names=[str(config)], task_name=task_name)
+        if not session.start():
+            logger.warning(Resource.cli_task_taskAlreadyRunning)
+            return False
         # 获取任务实例
         task_instance = self.get_task(config, task_name)
         if task_instance is None:
+            session.finish("failed")
             logger.error(Resource.task_noSuchTask(config))
             return False
         self._stop_event.clear()
+        self._start_runtime_watcher(session)
         try:
             logger.debug('running task: ' + str(task_instance.__class__.__name__))
             # 单次运行：开始通知
@@ -293,6 +336,9 @@ class TaskManager:
             task_instance.fail()
             return False
         finally:
+            final_state = "stopped" if self._stop_event.is_set() else "completed"
+            self._stop_runtime_watcher()
+            session.finish(final_state)
             logger.debug("[Done]")
 
     def get_task(self, config_name: str, task: str) -> BaseTask | None:
