@@ -126,7 +126,7 @@ export const useAppStore = defineStore('app', () => {
   async function loadConfigs() {
     const payload = await configsApi.getConfigNames()
     configNames.value = payload
-    if (!selectedConfig.value && payload.length) selectedConfig.value = payload[0]
+    if (!selectedConfig.value && payload.length) selectedConfig.value = payload[0] ?? ''
   }
 
   async function loadConfigDetail() {
