@@ -1,6 +1,9 @@
+import dataclasses
 import importlib
+import os
 import sys
 import threading
+import uuid
 from typing import Any
 
 from SRACore.localization import Resource
@@ -19,6 +22,16 @@ from SRACore.util.errors import ThreadStoppedError
 from SRACore.util.logger import logger
 
 
+@dataclasses.dataclass
+class TaskInfo:
+    sessionId: str = dataclasses.field(default_factory=lambda: uuid.uuid4().hex)
+    pid: int = dataclasses.field(default_factory=os.getpid)
+    mode: str = "unknown"
+    configs: tuple[str, ...] = dataclasses.field(default_factory=tuple)
+    task: str = "unknown"
+    status: str = "stop"
+
+
 class TaskManager:
     """
     任务管理器线程，负责按顺序执行多个任务（如启动游戏、体力刷取等）。
@@ -34,6 +47,7 @@ class TaskManager:
         self._runtime_watcher_stop = threading.Event()
         self._runtime_watcher_thread: threading.Thread | None = None
         self._thread: threading.Thread | None = None
+        self.info = TaskInfo()
         self.task_list: list[type[BaseTask]] = get_task_classes()
         self.settings: AppSettings = settings
         logger.debug(f"Successfully load task: {self.task_list}")
@@ -137,20 +151,27 @@ class TaskManager:
         3. 处理任务中断或失败的情况
         """
         self._stop_event.clear()
-        session = RuntimeSession(owner="sra-cli", mode="run", config_names=[str(arg) for arg in args])
+        if len(args)==0:
+            # 不指定配置时，加载缓存中的全部配置名称
+            config_list = load_cache().get("ConfigNames", [])
+        else:
+            # 指定配置名称
+            config_list = args
+
+        config_names = [str(config_name) for config_name in config_list]
+        session = RuntimeSession(owner="sra-cli", mode="run", config_names=config_names)
         if not session.start():
             logger.warning(Resource.cli_task_taskAlreadyRunning)
             return
         self._start_runtime_watcher(session)
         logger.debug('[Start]')
+        self.info.sessionId = session.session_id
+        self.info.pid = os.getpid()
+        self.info.mode = "run"
+        self.info.task = "unknown"
+        self.info.status = "running"
+        self.info.configs = tuple(config_names)
         try:
-            if len(args)==0:
-                # 不指定配置时，加载缓存中的全部配置名称
-                config_list = load_cache().get("ConfigNames", [])
-            else:
-                # 指定配置名称
-                config_list = args
-
             last_operator = None
             for config_name in config_list:
                 if self._stop_event.is_set():
@@ -175,6 +196,9 @@ class TaskManager:
                     try:
                         # 运行任务，如果返回 False 表示任务失败
                         logger.debug('running task: ' + str(task))
+                        self.info.task = str(task)
+                        session.task_name = str(task)
+                        session.heartbeat()
                         # 任务开始
                         task.start()
                         if not task.run():
@@ -206,6 +230,7 @@ class TaskManager:
             final_state = "stopped" if self._stop_event.is_set() else "completed"
             self._stop_runtime_watcher()
             session.finish(final_state)
+            self.info.status = final_state
             logger.debug("[Done]")
 
     def get_tasks(self, config_name: str) -> list[BaseTask]:
@@ -307,9 +332,16 @@ class TaskManager:
             logger.warning(Resource.cli_task_taskAlreadyRunning)
             return False
         # 获取任务实例
+        self.info.sessionId = session.session_id
+        self.info.pid = os.getpid()
+        self.info.mode = "single"
+        self.info.configs = (str(config),)
+        self.info.task = task_name
+        self.info.status = "running"
         task_instance = self.get_task(config, task_name)
         if task_instance is None:
             session.finish("failed")
+            self.info.status = "failed"
             logger.error(Resource.task_noSuchTask(config))
             return False
         self._stop_event.clear()
@@ -339,6 +371,7 @@ class TaskManager:
             final_state = "stopped" if self._stop_event.is_set() else "completed"
             self._stop_runtime_watcher()
             session.finish(final_state)
+            self.info.status = final_state
             logger.debug("[Done]")
 
     def get_task(self, config_name: str, task: str) -> BaseTask | None:

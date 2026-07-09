@@ -127,6 +127,18 @@ public class BackendServiceProxy(CliBackendService cliBackendService, PyBackendS
         return _currentBackend.TaskStopAsync();
     }
 
+    public Task<string> GetTaskStatusAsync()
+    {
+        if (!_initialized) Initialize();
+        return _currentBackend.GetTaskStatusAsync();
+    }
+
+    public Task<byte[]> GetGameScreenshotBytesAsync()
+    {
+        if (!_initialized) Initialize();
+        return _currentBackend.GetGameScreenshotBytesAsync();
+    }
+
     private void RefreshRuntimeStatus()
     {
         var runtimeRunning = runtimeTaskService.IsRunning();

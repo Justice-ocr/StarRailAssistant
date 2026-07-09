@@ -4,6 +4,15 @@ export type SraStatus = {
   executablePath?: string
   port?: number
   detail?: string
+  mode?: string
+  configs?: string[]
+  configNames?: string[]
+  sessionId?: string
+  task?: string
+  taskName?: string
+  status?: string
+  state?: string
+  owner?: string
 }
 
 export type HealthInfo = {

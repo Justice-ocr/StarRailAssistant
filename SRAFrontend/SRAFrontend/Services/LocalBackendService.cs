@@ -11,7 +11,9 @@ namespace SRAFrontend.Services;
 public abstract class LocalBackendService(ILogger<LocalBackendService> logger)
     : IBackendService
 {
+    private static readonly TimeSpan BackendQueryTimeout = TimeSpan.FromSeconds(3);
     private Process? _backendProcess;
+    private TaskCompletionSource<string>? _outputTcs;
     public abstract string FileName { get; set; }
     public abstract string WorkingDirectory { get; set; }
     public abstract string MainArgument { get; set; }
@@ -181,6 +183,58 @@ public abstract class LocalBackendService(ILogger<LocalBackendService> logger)
         return SendInputAsync("task stop");
     }
 
+    public async Task<string> GetTaskStatusAsync()
+    {
+        if (_backendProcess == null || _backendProcess.HasExited)
+        {
+            logger.LogWarning("Attempted to get task status, but backend process is not running.");
+            return string.Empty;
+        }
+
+        var tcs = new TaskCompletionSource<string>();
+        _outputTcs = tcs;
+        await SendInputAsync("task status --json");
+        var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(BackendQueryTimeout));
+        if (completedTask == tcs.Task)
+            return await tcs.Task;
+
+        if (_outputTcs == tcs)
+            _outputTcs = null;
+        logger.LogWarning("Timed out while waiting for task status output.");
+        return string.Empty;
+    }
+
+    public async Task<byte[]> GetGameScreenshotBytesAsync()
+    {
+        if (_backendProcess == null || _backendProcess.HasExited)
+        {
+            logger.LogWarning("Attempted to screenshot, but backend process is not running.");
+            return [];
+        }
+
+        var screenshotPath = Path.Combine(WorkingDirectory, "screenshot.png");
+        var tcs = new TaskCompletionSource<string>();
+        _outputTcs = tcs;
+        await SendInputAsync($"game screenshot --background --save {screenshotPath}");
+        var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(BackendQueryTimeout));
+        if (completedTask != tcs.Task)
+        {
+            if (_outputTcs == tcs)
+                _outputTcs = null;
+            logger.LogWarning("Timed out while waiting for game screenshot output.");
+            return [];
+        }
+
+        var result = await tcs.Task;
+        if (result.StartsWith("Failed") || !File.Exists(screenshotPath))
+        {
+            logger.LogError("Failed to create screenshot.");
+            return [];
+        }
+
+        return await File.ReadAllBytesAsync(screenshotPath);
+    }
+
     private void OnBackendProcessExited(object? sender, EventArgs e)
     {
         var processId = _backendProcess?.Id ?? -1;
@@ -205,6 +259,9 @@ public abstract class LocalBackendService(ILogger<LocalBackendService> logger)
             IsTaskRunning = false;
 
         Outputted?.Invoke(args.Data);
+
+        if (_outputTcs?.TrySetResult(args.Data) == true)
+            _outputTcs = null;
     }
 
     private void OnBackendProcessErrorDataReceived(object _, DataReceivedEventArgs args)

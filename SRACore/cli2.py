@@ -1,5 +1,5 @@
 import argparse
-from re import S
+import dataclasses
 
 import cmd2
 from cmd2.parsing import Statement
@@ -145,6 +145,27 @@ class SRACli(cmd2.Cmd):
             self.poutput(Resource.cli_task_stopped)
         else:
             self.poutput(Resource.cli_task_notRunning)
+
+    @staticmethod
+    def _build_task_status_parser() -> cmd2.Cmd2ArgumentParser:
+        task_status_parser = cmd2.argparse_custom.DEFAULT_ARGUMENT_PARSER(description="Show current task status")
+        task_status_parser.add_argument('--json', action='store_true', help='Output in JSON format')
+        return task_status_parser
+
+    @cmd2.as_subcommand_to("task", "status", _build_task_status_parser(), help="Show current task status")
+    def _task_status(self, args: argparse.Namespace) -> None:
+        import json
+        info = self.task_manager.info
+        if args.json:
+            self.poutput(json.dumps(dataclasses.asdict(info)))
+            return
+
+        self.poutput(f"Session ID: {info.sessionId}")
+        self.poutput(f"PID: {info.pid}")
+        self.poutput(f"Mode: {info.mode}")
+        self.poutput(f"Configs: {', '.join(info.configs) if info.configs else 'N/A'}")
+        self.poutput(f"Task: {info.task}")
+        self.poutput(f"Status: {info.status}")
 
     @staticmethod
     def _build_run_parser() -> cmd2.Cmd2ArgumentParser:
@@ -297,6 +318,52 @@ class SRACli(cmd2.Cmd):
     # endregion
 
     # region 其他命令
+    # region 游戏控制
+
+    @staticmethod
+    def _build_game_parser() -> argparse.ArgumentParser:
+        game_description = Text.assemble("游戏控制")
+        game_parser = cmd2.argparse_custom.DEFAULT_ARGUMENT_PARSER(description=game_description)
+        game_parser.add_subparsers(metavar="SUBCOMMAND", required=True)
+        return game_parser
+
+    @cmd2.with_argparser(_build_game_parser())
+    def do_game(self, args: argparse.Namespace) -> None:
+        handler = args.cmd2_handler.get()
+        handler(args)
+
+    @staticmethod
+    def _build_game_screenshot_parser() -> cmd2.Cmd2ArgumentParser:
+        game_screenshot_parser = cmd2.argparse_custom.DEFAULT_ARGUMENT_PARSER(description="截取游戏截图")
+        game_screenshot_parser.add_argument(
+            '--save',
+            nargs='?',
+            const='screenshot.png',
+            default=None,
+            help="保存截图到指定路径（默认 screenshot.png）",
+        )
+        game_screenshot_parser.add_argument('--show', action="store_true", help="显示截图")
+        game_screenshot_parser.add_argument('--background', action="store_true", help="在后台截取截图")
+        return game_screenshot_parser
+
+    @cmd2.as_subcommand_to("game", "screenshot", _build_game_screenshot_parser(), help="截取游戏截图")
+    def _game_screenshot(self, args: argparse.Namespace) -> None:
+        if not args.save and not args.show:
+            self.poutput("--save or --show is required")
+            return
+        try:
+            img = self.task_manager.get_operator().screenshot(background=args.background)
+        except Exception as e:
+            self.poutput(f"Failed to take screenshot: {e}")
+            return
+        if args.save:
+            img.save(args.save)
+            self.poutput(f"Screenshot saved to {args.save}")
+        if args.show:
+            img.show()
+
+    # endregion
+
     def do_version(self, _: str):
         """Show version information"""
         self.poutput(f"{VERSION}")

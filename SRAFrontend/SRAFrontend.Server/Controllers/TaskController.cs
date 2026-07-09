@@ -104,10 +104,42 @@ public class TaskController(
 
     [HttpGet("status")]
     [EndpointSummary("获取任务状态")]
-    [ProducesResponseType(200, Type = typeof(bool))]
-    public IActionResult GetStatus()
+    [ProducesResponseType(200, Type = typeof(object))]
+    public async Task<IActionResult> GetStatus()
     {
-        return Ok(runtimeTaskService.GetStatus());
+        var runtimeStatus = runtimeTaskService.GetStatus();
+        var backendJson = await backendService.GetTaskStatusAsync();
+        JsonElement? backendStatus = null;
+        if (!string.IsNullOrWhiteSpace(backendJson))
+        {
+            try
+            {
+                backendStatus = JsonDocument.Parse(backendJson).RootElement.Clone();
+            }
+            catch (JsonException ex)
+            {
+                logger.LogWarning(ex, "Failed to parse backend task status JSON");
+            }
+        }
+
+        return Ok(new
+        {
+            running = runtimeStatus.Running || backendService.IsTaskRunning,
+            pid = runtimeStatus.Pid,
+            sessionId = runtimeStatus.SessionId,
+            mode = runtimeStatus.Mode,
+            configs = runtimeStatus.ConfigNames,
+            configNames = runtimeStatus.ConfigNames,
+            task = runtimeStatus.TaskName,
+            taskName = runtimeStatus.TaskName,
+            status = runtimeStatus.State,
+            state = runtimeStatus.State,
+            owner = runtimeStatus.Owner,
+            detail = runtimeStatus.Detail,
+            startedAt = runtimeStatus.StartedAt,
+            lastHeartbeat = runtimeStatus.LastHeartbeat,
+            backend = backendStatus
+        });
     }
 
     [HttpGet("logs")]
@@ -151,15 +183,12 @@ public class TaskController(
     [EndpointSummary("截取游戏窗口")]
     [ProducesResponseType(200, Type = typeof(FileResult))]
     [ProducesResponseType(404)]
-    public IActionResult GetScreenshot()
+    public async Task<IActionResult> GetScreenshot()
     {
-        // Server 与游戏运行在同一台机器，直接通过 Win32 抓取游戏窗口客户区。
-        // 仅 Windows 可用；其它平台返回 404。
-        if (!OperatingSystem.IsWindows())
-            return NotFound(new R(false, "Screenshot is only supported on Windows."));
-
-        var png = Server.Utils.GameScreenshot.CaptureGameWindowPng();
-        if (png is null || png.Length == 0)
+        // Keep the older /Task/screenshot route as a compatibility alias while
+        // delegating the capture to the backend/CLI path used by /Game/screenshot.
+        var png = await backendService.GetGameScreenshotBytesAsync();
+        if (png.Length == 0)
             return NotFound(new R(false, "Game window not found or capture failed."));
 
         return File(png, "image/png");
@@ -220,4 +249,4 @@ public class RunRequest
     public bool Persist { get; set; }
 }
 
-public record R(bool Success, string Message);
+public record R(bool Success, string Message, object? Data = null);

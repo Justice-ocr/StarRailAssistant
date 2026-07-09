@@ -157,6 +157,32 @@ public class RemoteBackendService(IHttpClientFactory httpClientFactory, ILogger<
         return Task.FromResult(false);
     }
 
+    public async Task<string> GetTaskStatusAsync()
+    {
+        try
+        {
+            return await Client.GetStringAsync($"{BaseUrl}/Task/status");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to get task status from remote backend");
+            return string.Empty;
+        }
+    }
+
+    public async Task<byte[]> GetGameScreenshotBytesAsync()
+    {
+        try
+        {
+            return await Client.GetByteArrayAsync($"{BaseUrl}/Game/screenshot");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to get game screenshot from remote backend");
+            return [];
+        }
+    }
+
     /// <summary>
     /// 连接到远程服务器：先同步当前任务状态，然后订阅 SSE 日志流。
     /// </summary>
@@ -200,8 +226,8 @@ public class RemoteBackendService(IHttpClientFactory httpClientFactory, ILogger<
     {
         try
         {
-            var running = await Client.GetFromJsonAsync<bool>($"{BaseUrl}/Task/status", ct);
-            IsTaskRunning = running;
+            var status = await Client.GetFromJsonAsync<RemoteTaskStatus>($"{BaseUrl}/Task/status", ct);
+            IsTaskRunning = status?.Running ?? false;
         }
         catch (Exception ex)
         {
@@ -236,4 +262,9 @@ public class RemoteBackendService(IHttpClientFactory httpClientFactory, ILogger<
             Outputted?.Invoke(data);
         }
     }
+}
+
+internal sealed class RemoteTaskStatus
+{
+    public bool Running { get; set; }
 }

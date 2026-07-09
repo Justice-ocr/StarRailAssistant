@@ -31,6 +31,7 @@ class IOperator(ABC):
         self.is_developer_mode: bool = self.settings.Advanced.isDeveloperModeEnabled
         self.is_save_ocr_image: bool = self.settings.Advanced.isSaveOcrImage if self.is_developer_mode else False
         self.stop_event: threading.Event | None = stop_event
+        self.screenshot_background = True
 
     @classmethod
     def _get_ocr_instance(cls):
@@ -52,7 +53,8 @@ class IOperator(ABC):
                    from_x: float | None = None,
                    from_y: float | None = None,
                    to_x: float | None = None,
-                   to_y: float | None = None) -> Image:
+                   to_y: float | None = None,
+                   background: bool = False) -> Image:
         """截取屏幕截图
         Args:
             from_x (float, optional): 起始点X坐标比例 (0-1)，相对于窗口左上角
