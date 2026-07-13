@@ -183,13 +183,14 @@ public class TaskController(
     [EndpointSummary("截取游戏窗口")]
     [ProducesResponseType(200, Type = typeof(FileResult))]
     [ProducesResponseType(404)]
-    public async Task<IActionResult> GetScreenshot()
+    public IActionResult GetScreenshot()
     {
-        // Keep the older /Task/screenshot route as a compatibility alias while
-        // delegating the capture to the backend/CLI path used by /Game/screenshot.
-        var png = await backendService.GetGameScreenshotBytesAsync();
-        if (png.Length == 0)
-            return NotFound(new R(false, "Game window not found or capture failed."));
+        if (!OperatingSystem.IsWindows())
+            return NotFound(new R(false, "截图功能仅支持 Windows"));
+
+        var png = Server.Utils.GameScreenshot.CaptureGameWindowPng(out var error);
+        if (png is null || png.Length == 0)
+            return NotFound(new R(false, $"截图失败：{error}"));
 
         return File(png, "image/png");
     }
