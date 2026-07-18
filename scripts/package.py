@@ -33,7 +33,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 
 ROOT_PATH = Path(__file__).resolve().parent.parent
 DOTNET_EXE = os.environ.get("DOTNET_EXE", "dotnet")
-PNPM_EXE = os.environ.get("PNPM_EXE", "pnpm")
+PNPM_EXE = os.environ.get("PNPM_EXE", "pnpm.cmd" if os.name == "nt" else "pnpm")
 DESKTOP_WIN_X64_PUBLISH_PATH = ROOT_PATH / "SRAFrontend" / "SRAFrontend.Desktop" / "bin" / "Release" / "net10.0" / "win-x64" / "publish"
 SERVER_WIN_X64_PUBLISH_PATH = ROOT_PATH / "SRAFrontend" / "SRAFrontend.Server" / "bin" / "Release" / "net10.0" / "win-x64" / "publish"
 WEBUI_FRONTEND_PATH = ROOT_PATH / "SRAFrontend" / "srafrontend-webui"
