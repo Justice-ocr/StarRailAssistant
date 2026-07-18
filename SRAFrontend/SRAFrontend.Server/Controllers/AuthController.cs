@@ -1,25 +1,41 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SRAFrontend.Server.Utils;
+using SRAFrontend.Services;
 
 namespace SRAFrontend.Server.Controllers;
 
 [ApiController]
 [Route("[controller]")]
-public class AuthController(IConfiguration configuration) : Controller
+public class AuthController(SettingsService settingsService, IConfiguration configuration) : Controller
 {
     [AllowAnonymous]
-    [HttpPost]
+    [HttpPost("verify")]
     [ProducesResponseType(200)]
     [ProducesResponseType(401)]
-    public IActionResult Auth([FromBody] TokenRequest request)
+    public IActionResult Verify([FromBody] TokenRequest request)
     {
         var token = request.Token?.Trim() ?? "";
-        var configuredToken = configuration["AccessToken"];
-        if (string.IsNullOrWhiteSpace(configuredToken)) return Ok(new { ok = true });
-        if (!string.Equals(token, configuredToken, StringComparison.Ordinal))
+        var configuredToken = GetConfiguredToken();
+        if (string.IsNullOrWhiteSpace(configuredToken) ||
+            !string.Equals(token, configuredToken, StringComparison.Ordinal))
             return Unauthorized(new { message = "访问令牌不正确" });
 
         return Ok(new { ok = true });
+    }
+
+    private string GetConfiguredToken()
+    {
+        settingsService.Load();
+        var settingsToken = settingsService.Settings.Advanced.WebUiRemoteToken;
+        if (!string.IsNullOrWhiteSpace(settingsToken))
+            return settingsToken;
+
+        var appSettingsToken = configuration["WebUi:AuthToken"];
+        if (!string.IsNullOrWhiteSpace(appSettingsToken))
+            return appSettingsToken;
+
+        return "";
     }
 }
 

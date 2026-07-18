@@ -44,6 +44,7 @@ def test_load_all_tasks_and_trigger_start_complete_notifications(monkeypatch) ->
         "ReceiveRewardsTask",
         "CosmicStrifeTask",
         "MissionAccomplishTask",
+        "WarpForecastTask",
     ]
 
     for task_cls in task_classes:
@@ -59,8 +60,8 @@ def test_load_all_tasks_and_trigger_start_complete_notifications(monkeypatch) ->
 
         sent_notifications.clear()
 
-        task.start()
-        task.complete()
+        task_module.BaseTask.on_start(task)
+        task_module.BaseTask.on_completed(task)
 
         assert len(sent_notifications) == 2
         assert all(title == Resource.task_notificationTitle for title, _, _ in sent_notifications)

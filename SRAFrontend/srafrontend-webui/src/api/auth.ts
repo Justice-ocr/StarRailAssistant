@@ -1,5 +1,5 @@
 import request from './request'
 
-export function auth(token: string) {
-  return request.post('/auth', { token })
+export function verifyToken(token: string) {
+  return request.post('/Auth/verify', { token })
 }

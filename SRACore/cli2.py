@@ -2,12 +2,12 @@ import argparse
 import dataclasses
 
 import cmd2
+from cmd2.parsing import Statement
 from loguru import logger
 from rich.text import Text
 
 from SRACore.localization import Resource
 from SRACore.models.app_settings import AppSettings
-from SRACore.operators.factory import OperatorFactory
 from SRACore.runtime.event_listener import KeyboardListener
 from SRACore.runtime.trigger_manager import TriggerManager
 from SRACore.thread.task_process import TaskManager
@@ -43,6 +43,22 @@ class SRACli(cmd2.Cmd):
         self.event_listener.register_key_event(stop_hotkey, self._task_stop)
         self.event_listener.start()
 
+    @staticmethod
+    def _strip_command_bom(command: str) -> str:
+        return command.lstrip("\ufeff\ufffe\u00ef\u00bb\u00bf")
+
+    @classmethod
+    def _clean_command_name(cls, command: str) -> str:
+        return cls._strip_command_bom(command).strip()
+
+    def _read_command_line(self, prompt: str) -> str:
+        return self._strip_command_bom(super()._read_command_line(prompt))
+
+    def onecmd(self, statement: Statement | str, *, add_to_history: bool = True) -> bool:
+        if isinstance(statement, str):
+            statement = self._strip_command_bom(statement)
+        return super().onecmd(statement, add_to_history=add_to_history)
+
     # region 任务管理
     @staticmethod
     def _build_task_parser() -> cmd2.Cmd2ArgumentParser:
@@ -67,7 +83,7 @@ class SRACli(cmd2.Cmd):
         if self.task_manager.is_thread_running():
             self.poutput(Resource.cli_task_taskAlreadyRunning)
             return
-        self.task_manager.run_in_thread(*args.config)
+        self.task_manager.run_in_thread(*[self._clean_command_name(name) for name in args.config])
 
     @staticmethod
     def _build_task_single_parser() -> cmd2.Cmd2ArgumentParser:
@@ -82,7 +98,9 @@ class SRACli(cmd2.Cmd):
         if self.task_manager.is_thread_running():
             self.poutput(Resource.cli_task_taskAlreadyRunning)
             return
-        if self.task_manager.run_task_in_thread(args.task, args.config):
+        task_name = self._clean_command_name(args.task)
+        config_name = self._clean_command_name(args.config) if args.config else None
+        if self.task_manager.run_task_in_thread(task_name, config_name):
             self.poutput(Resource.cli_run_started)
 
     @staticmethod
@@ -131,7 +149,7 @@ class SRACli(cmd2.Cmd):
         """Run specified tasks, will block current command line until tasks complete"""
         self.poutput(Resource.cli_run_started)
         try:
-            self.task_manager.run(*args.config)
+            self.task_manager.run(*[self._clean_command_name(name) for name in args.config])
         except KeyboardInterrupt:
             self.task_manager.request_stop()
 
@@ -148,7 +166,9 @@ class SRACli(cmd2.Cmd):
         """Run a single specified task, will block current command line until task complete"""
         self.poutput(Resource.cli_run_started)
         try:
-            self.task_manager.run_task(args.task, args.config)
+            task_name = self._clean_command_name(args.task)
+            config_name = self._clean_command_name(args.config) if args.config else None
+            self.task_manager.run_task(task_name, config_name)
         except KeyboardInterrupt:
             self.task_manager.request_stop()
 
@@ -295,7 +315,7 @@ class SRACli(cmd2.Cmd):
             self.poutput("--save or --show is required")
             return
         try:
-            img = OperatorFactory.get_operator().screenshot(background=args.background)
+            img = self.task_manager.get_operator().screenshot(background=args.background)
         except Exception as e:
             self.poutput(f"Failed to take screenshot: {e}")
             return
@@ -318,7 +338,7 @@ class SRACli(cmd2.Cmd):
     def _game_ocr(self, args: argparse.Namespace) -> None:
         import json
         try:
-            operator = OperatorFactory.get_operator()
+            operator = self.task_manager.get_operator()
             region = args.region
             result = operator.ocr(
                 from_x=region[0] if region else None,

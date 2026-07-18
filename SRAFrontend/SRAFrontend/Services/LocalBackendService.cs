@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
@@ -10,13 +11,15 @@ namespace SRAFrontend.Services;
 public abstract class LocalBackendService(ILogger<LocalBackendService> logger)
     : IBackendService
 {
+    private static readonly TimeSpan BackendQueryTimeout = TimeSpan.FromSeconds(3);
     private Process? _backendProcess;
+    private TaskCompletionSource<string>? _outputTcs;
     public abstract string FileName { get; set; }
     public abstract string WorkingDirectory { get; set; }
     public abstract string MainArgument { get; set; }
     public event PropertyChangedEventHandler? PropertyChanged;
     public event Action<string>? Outputted;
-    private TaskCompletionSource<string>? _outputTcs;
+
     public bool IsTaskRunning
     {
         get;
@@ -111,9 +114,14 @@ public abstract class LocalBackendService(ILogger<LocalBackendService> logger)
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
+                StandardInputEncoding = new UTF8Encoding(false),
+                StandardOutputEncoding = new UTF8Encoding(false),
+                StandardErrorEncoding = new UTF8Encoding(false),
                 CreateNoWindow = true,
                 WorkingDirectory = WorkingDirectory
             };
+            _backendProcess.StartInfo.EnvironmentVariables["PYTHONUTF8"] = "1";
+            _backendProcess.StartInfo.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
             _backendProcess.EnableRaisingEvents = true; // 启用Exited事件
             _backendProcess.OutputDataReceived += OnBackendProcessOutputDataReceived;
             _backendProcess.ErrorDataReceived += OnBackendProcessErrorDataReceived;
@@ -182,10 +190,18 @@ public abstract class LocalBackendService(ILogger<LocalBackendService> logger)
             logger.LogWarning("Attempted to get task status, but backend process is not running.");
             return string.Empty;
         }
+
         var tcs = new TaskCompletionSource<string>();
         _outputTcs = tcs;
         await SendInputAsync("task status --json");
-        return await tcs.Task;
+        var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(BackendQueryTimeout));
+        if (completedTask == tcs.Task)
+            return await tcs.Task;
+
+        if (_outputTcs == tcs)
+            _outputTcs = null;
+        logger.LogWarning("Timed out while waiting for task status output.");
+        return string.Empty;
     }
 
     public async Task<byte[]> GetGameScreenshotBytesAsync()
@@ -195,18 +211,28 @@ public abstract class LocalBackendService(ILogger<LocalBackendService> logger)
             logger.LogWarning("Attempted to screenshot, but backend process is not running.");
             return [];
         }
+
         var screenshotPath = Path.Combine(WorkingDirectory, "screenshot.png");
         var tcs = new TaskCompletionSource<string>();
         _outputTcs = tcs;
         await SendInputAsync($"game screenshot --background --save {screenshotPath}");
-        var result = await tcs.Task; // 等待输出完成
-        if (result.StartsWith("Failed"))
+        var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(BackendQueryTimeout));
+        if (completedTask != tcs.Task)
+        {
+            if (_outputTcs == tcs)
+                _outputTcs = null;
+            logger.LogWarning("Timed out while waiting for game screenshot output.");
+            return [];
+        }
+
+        var result = await tcs.Task;
+        if (result.StartsWith("Failed") || !File.Exists(screenshotPath))
         {
             logger.LogError("Failed to create screenshot.");
             return [];
         }
-        var screenshotBytes = await File.ReadAllBytesAsync(screenshotPath);
-        return screenshotBytes;
+
+        return await File.ReadAllBytesAsync(screenshotPath);
     }
 
     private void OnBackendProcessExited(object? sender, EventArgs e)
@@ -226,23 +252,22 @@ public abstract class LocalBackendService(ILogger<LocalBackendService> logger)
     {
         if (string.IsNullOrEmpty(args.Data)) return;
 
-        Outputted?.Invoke(args.Data);
-
-        // 完成等待中的输出请求
-        if (_outputTcs?.TrySetResult(args.Data) == true)
-            _outputTcs = null; // 释放引用
-    }
-
-    private void OnBackendProcessErrorDataReceived(object _, DataReceivedEventArgs args)
-    {
-        if (string.IsNullOrEmpty(args.Data)) return;
-        
         // 更新运行状态
         if (args.Data.Contains(IBackendService.StartMarker))
             IsTaskRunning = true;
         else if (args.Data.Contains(IBackendService.DoneMarker))
             IsTaskRunning = false;
-        
+
+        Outputted?.Invoke(args.Data);
+
+        if (_outputTcs?.TrySetResult(args.Data) == true)
+            _outputTcs = null;
+    }
+
+    private void OnBackendProcessErrorDataReceived(object _, DataReceivedEventArgs args)
+    {
+        if (string.IsNullOrEmpty(args.Data)) return;
+
         Outputted?.Invoke(args.Data);
     }
 

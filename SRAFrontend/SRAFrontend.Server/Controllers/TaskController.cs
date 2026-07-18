@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Runtime.Versioning;
+using System.Security.Principal;
 using Microsoft.AspNetCore.Mvc;
 using SRAFrontend.Data;
 using SRAFrontend.Models;
@@ -11,6 +13,7 @@ namespace SRAFrontend.Server.Controllers;
 [Route("[controller]")]
 public class TaskController(
     IBackendService backendService,
+    RuntimeTaskService runtimeTaskService,
     LogStreamService logStream,
     IHostApplicationLifetime lifetime,
     ILogger<TaskController> logger) : Controller
@@ -26,13 +29,26 @@ public class TaskController(
     [ProducesResponseType(500)]
     public async Task<IActionResult> RunTask([FromBody] RunRequest request)
     {
+        // SRA-cli automates the game window and needs elevated permission in the
+        // same way as the desktop frontend.  Detecting this before startup gives
+        // WebUI users a direct error instead of a task that appears to hang.
+        if (OperatingSystem.IsWindows() && !IsAdministrator())
+            return StatusCode(500, new R(false, "WebUI must be running as administrator before it can start SRA-cli tasks."));
+
+        // RuntimeTaskService also sees tasks started by SRA.exe, not only tasks
+        // launched through this controller.
+        if (runtimeTaskService.IsRunning())
+            return Conflict(new R(false, "A task is already running"));
+
+        // The server is the HTTP/control host.  The CLI remains the task control
+        // endpoint, so WebUI uses the same command path as SRA.exe.
+        backendService.StartBackend("--inline");
+        if (!await WaitForBackendReadyAsync())
+            return StatusCode(500, new R(false, "Backend failed to start. Check WebUI logs for details."));
+
         if (backendService.IsTaskRunning)
             return Conflict(new R(false, "A task is already running"));
 
-        backendService.StartBackend("--inline --no-admin");
-        if (!await WaitForBackendReadyAsync())
-            return StatusCode(500, new R(false, "Backend failed to start. Check WebUI logs for details."));
-        
         string? configName = null;
 
         if (request.Config is not null)
@@ -72,6 +88,13 @@ public class TaskController(
     [ProducesResponseType(200, Type = typeof(R))]
     public async Task<IActionResult> StopTask()
     {
+        // Prefer cooperative cross-process stop first.  It works even when the
+        // task was started from SRA.exe because the Python runner polls the same
+        // stop.request file.
+        if (runtimeTaskService.RequestStop("webui"))
+            return Ok(new R(true, "Stop signal sent"));
+
+        // Fallback for older/non-session backend states owned by this server.
         if (!backendService.IsTaskRunning)
             return Ok(new R(false, "No task is running"));
 
@@ -81,18 +104,42 @@ public class TaskController(
 
     [HttpGet("status")]
     [EndpointSummary("获取任务状态")]
-    [ProducesResponseType(200, Type = typeof(JsonDocument))]
-    public async Task<IActionResult> GetTaskStatus()
+    [ProducesResponseType(200, Type = typeof(object))]
+    public async Task<IActionResult> GetStatus()
     {
-        var json = await backendService.GetTaskStatusAsync();
-        try
+        var runtimeStatus = runtimeTaskService.GetStatus();
+        var backendJson = await backendService.GetTaskStatusAsync();
+        JsonElement? backendStatus = null;
+        if (!string.IsNullOrWhiteSpace(backendJson))
         {
-            return Ok(JsonDocument.Parse(json));
+            try
+            {
+                backendStatus = JsonDocument.Parse(backendJson).RootElement.Clone();
+            }
+            catch (JsonException ex)
+            {
+                logger.LogWarning(ex, "Failed to parse backend task status JSON");
+            }
         }
-        catch (JsonException)
+
+        return Ok(new
         {
-            return StatusCode(500, new R(false, "Failed to parse task status JSON"));
-        }
+            running = runtimeStatus.Running || backendService.IsTaskRunning,
+            pid = runtimeStatus.Pid,
+            sessionId = runtimeStatus.SessionId,
+            mode = runtimeStatus.Mode,
+            configs = runtimeStatus.ConfigNames,
+            configNames = runtimeStatus.ConfigNames,
+            task = runtimeStatus.TaskName,
+            taskName = runtimeStatus.TaskName,
+            status = runtimeStatus.State,
+            state = runtimeStatus.State,
+            owner = runtimeStatus.Owner,
+            detail = runtimeStatus.Detail,
+            startedAt = runtimeStatus.StartedAt,
+            lastHeartbeat = runtimeStatus.LastHeartbeat,
+            backend = backendStatus
+        });
     }
 
     [HttpGet("logs")]
@@ -100,6 +147,9 @@ public class TaskController(
     [ProducesResponseType(200, Type = typeof(List<string>))]
     public IActionResult GetRecentLogs([FromQuery] int count = 100)
     {
+        var fileLogs = ReadRecentBackendLogLines(count);
+        if (fileLogs.Count > 0)
+            return Ok(fileLogs);
         return Ok(logStream.GetRecentLogs(count));
     }
 
@@ -129,6 +179,22 @@ public class TaskController(
         }
     }
 
+    [HttpGet("screenshot")]
+    [EndpointSummary("截取游戏窗口")]
+    [ProducesResponseType(200, Type = typeof(FileResult))]
+    [ProducesResponseType(404)]
+    public IActionResult GetScreenshot()
+    {
+        if (!OperatingSystem.IsWindows())
+            return NotFound(new R(false, "截图功能仅支持 Windows"));
+
+        var png = Server.Utils.GameScreenshot.CaptureGameWindowPng(out var error);
+        if (png is null || png.Length == 0)
+            return NotFound(new R(false, $"截图失败：{error}"));
+
+        return File(png, "image/png");
+    }
+
     private async Task<bool> WaitForBackendReadyAsync()
     {
         var deadline = DateTimeOffset.UtcNow + BackendStartTimeout;
@@ -143,6 +209,37 @@ public class TaskController(
         }
 
         return false;
+    }
+
+    private static List<string> ReadRecentBackendLogLines(int count)
+    {
+        count = Math.Clamp(count, 1, 1000);
+        try
+        {
+            if (!Directory.Exists(DataPath.BackendLogsDir))
+                return [];
+            // File logs cover tasks started outside this server process.  When no
+            // file is available, the caller falls back to in-memory server logs.
+            var file = Directory.GetFiles(DataPath.BackendLogsDir, "SRA*.log")
+                .Select(path => new FileInfo(path))
+                .OrderByDescending(info => info.LastWriteTimeUtc)
+                .FirstOrDefault();
+            if (file is null)
+                return [];
+            return System.IO.File.ReadLines(file.FullName).TakeLast(count).ToList();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static bool IsAdministrator()
+    {
+        using var identity = WindowsIdentity.GetCurrent();
+        var principal = new WindowsPrincipal(identity);
+        return principal.IsInRole(WindowsBuiltInRole.Administrator);
     }
 }
 

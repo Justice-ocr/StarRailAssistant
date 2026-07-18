@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -18,6 +19,10 @@ public class TasksConfig
 
     [JsonPropertyName("version")] public int Version { get; init; } = StaticVersion;
     public static int StaticVersion => 4;
+
+    [JsonPropertyName("taskOrder")] public List<string> TaskOrder { get; set; } = [];
+    [JsonPropertyName("customTasks")] public List<CustomTaskEntry> CustomTasks { get; set; } = [];
+    [JsonPropertyName("enabledTasks")] public List<bool> EnabledTasks { get; set; } = [true, false, false, false, false];
 }
 
 public partial class StartGameConfig : ObservableObject

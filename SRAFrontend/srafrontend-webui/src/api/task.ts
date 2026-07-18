@@ -2,7 +2,7 @@ import request from './request'
 import type { SraStatus, TpTaskDefinition } from '@/types'
 
 export function getHealth() {
-  return request.get<SraStatus>('/Task/status')
+  return request.get<{ ok: boolean; sra?: SraStatus }>('/health')
 }
 
 export function getTaskDefinitions() {

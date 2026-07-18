@@ -27,18 +27,20 @@ const request = axios.create({
 
 request.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = getToken()
-  if (token) config.headers.set('X-Access-Token', token)
+  if (token) config.headers.set('X-Api-Key', token)
   return config
 })
 
 request.interceptors.response.use(
   (res: AxiosResponse) => res.data,
-  (error: AxiosError) => {
+  (error: AxiosError<{ message?: string; Message?: string; errors?: Record<string, string[]>; title?: string }>) => {
     if (error.response?.status === 401) {
       onUnauthorized()
       return Promise.reject(new Error('访问令牌不正确或已失效'))
     }
-    const message = error.message
+    const data = error.response?.data
+    const fieldErrors = data?.errors ? Object.values(data.errors).flat().join('；') : ''
+    const message = data?.message ?? data?.Message ?? fieldErrors ?? data?.title ?? error.message
     ElMessage.error(message)
     return Promise.reject(new Error(message))
   }

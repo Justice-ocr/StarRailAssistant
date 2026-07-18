@@ -9,8 +9,6 @@ public class TokenAuthenticationOptions : AuthenticationSchemeOptions
 {
     public const string DefaultScheme = "AccessToken";
     public const string HeaderName = "X-Access-Token";
-    public const string QueryName = "access_token";
-    public const string DefaultToken = "starrailassistant";
 }
 
 public class TokenAuthenticationHandler(
@@ -25,7 +23,8 @@ public class TokenAuthenticationHandler(
         var configuredToken = configuration[TokenAuthenticationOptions.DefaultScheme];
         var providedToken = GetProvidedToken();
 
-        if (string.IsNullOrWhiteSpace(providedToken) ||
+        if (string.IsNullOrWhiteSpace(configuredToken) ||
+            string.IsNullOrWhiteSpace(providedToken) ||
             !string.Equals(providedToken, configuredToken, StringComparison.Ordinal))
         {
             return Task.FromResult(AuthenticateResult.Fail("Invalid Access token"));
@@ -43,9 +42,6 @@ public class TokenAuthenticationHandler(
     {
         if (Request.Headers.TryGetValue(TokenAuthenticationOptions.HeaderName, out var headerValues))
             return headerValues.FirstOrDefault();
-
-        if (Request.Query.TryGetValue(TokenAuthenticationOptions.QueryName, out var queryValues))
-            return queryValues.FirstOrDefault();
 
         return null;
     }

@@ -156,9 +156,7 @@ def convert_csharp_default(csharp_default: str | None, python_type: str) -> str:
         return csharp_default
     elif csharp_default.startswith("'") and csharp_default.endswith("'"):
         return csharp_default
-    elif '.' in csharp_default and csharp_default.replace('.', '', 1).lstrip('-').isdigit():
-        return csharp_default
-    elif csharp_default.lstrip('-').isdigit():
+    elif re.fullmatch(r'-?\d+(?:\.\d+)?', csharp_default):
         return csharp_default
     elif csharp_default.startswith('[') and csharp_default.endswith(']'):
         return 'field(default_factory=list)'
