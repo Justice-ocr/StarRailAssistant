@@ -207,7 +207,7 @@ class TaskManager:
             try_send_notification(
                 Resource.task_notificationTitle,
                 Resource.task_notificationMessage,
-                operator=last_operator
+                image=last_operator.screenshot() if last_operator else None
             )
         except Exception as e:
             # 捕获线程主循环中的异常（如配置加载失败）

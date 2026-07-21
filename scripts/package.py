@@ -206,6 +206,9 @@ def nuitka_build(version: str):
         "--include-module=win32con",
         "--include-module=win32crypt",
         "--remove-output",
+        "--include-package=selenium.webdriver.edge",
+        "--include-package=selenium.webdriver.firefox",
+        "--include-package=selenium.webdriver.chrome",
         "main.py",
     ]
     result = subprocess.run(cmd, cwd=ROOT_PATH)
