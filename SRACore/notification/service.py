@@ -82,24 +82,13 @@ def clear_cached_game_screenshot() -> None:
     _cached_game_screenshot_bytes = None
 
 
-def try_send_notification(
-    title: str,
-    message: str,
-    result: str = "success",
-    image: Any | None = None,
-    operator: Any | None = None,
-) -> None:
+def try_send_notification(title: str, message: str, result: str = "success", image: Any | None = None) -> None:
     settings = load_notification_settings()
     if not settings.isEnabled:
         return
 
     screenshot_bytes = None
     if should_capture_notification_screenshot(settings):
-        if image is None and operator is not None:
-            try:
-                image = operator.screenshot()
-            except Exception:
-                pass
         screenshot_bytes = _image_to_bytes(image)
         if not screenshot_bytes:
             screenshot_bytes = _get_cached_game_screenshot_bytes()
