@@ -75,6 +75,28 @@ def test_try_send_notification_uses_new_dispatcher(monkeypatch) -> None:
     assert recorder.received[0].title == "title"
 
 
+def test_try_send_notification_accepts_legacy_operator(monkeypatch) -> None:
+    submitted: list[NotificationContext] = []
+    settings = NotificationSettings(isEnabled=True, isSystemEnabled=True)
+
+    class _Image:
+        def save(self, stream, format: str) -> None:
+            assert format == "PNG"
+            stream.write(b"legacy-screenshot")
+
+    class _Operator:
+        def screenshot(self):
+            return _Image()
+
+    monkeypatch.setattr(service, "load_notification_settings", lambda: settings)
+    monkeypatch.setattr(service._notification_executor, "submit", lambda _fn, ctx: submitted.append(ctx))
+
+    service.try_send_notification("title", "message", operator=_Operator())
+
+    assert len(submitted) == 1
+    assert submitted[0].screenshot_bytes == b"legacy-screenshot"
+
+
 def test_channel_test_notification_invalid_channel() -> None:
     label, ok = service.send_channel_test_notification("unknown")
 
