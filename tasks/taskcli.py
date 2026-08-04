@@ -8,7 +8,7 @@ from SRACore.cli2 import SRACli
 from SRACore.util.const import AppRootDir
 
 
-class TrailblazePowerCommands(cmd2.CommandSet[SRACli]):
+class TrailblazePowerCommands(cmd2.CommandSet):
     DEFAULT_CATEGORY = 'Trailblaze Power'
 
     @staticmethod
@@ -55,7 +55,7 @@ class TrailblazePowerCommands(cmd2.CommandSet[SRACli]):
             self._cmd.poutput("")
 
 
-class CurrencyWarsCommands(cmd2.CommandSet[SRACli]):
+class CurrencyWarsCommands(cmd2.CommandSet):
     DEFAULT_CATEGORY = 'Currency Wars'
 
     @staticmethod
