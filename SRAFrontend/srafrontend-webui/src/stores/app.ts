@@ -2,7 +2,7 @@ import {defineStore} from 'pinia'
 import {computed, reactive, ref} from 'vue'
 import {ElMessage} from 'element-plus'
 import {configureRequest} from '@/api/request'
-import {auth} from '@/api/auth'
+import {verifyToken} from '@/api/auth'
 import * as configsApi from '@/api/configs'
 import * as settingsApi from '@/api/settings'
 import * as taskApi from '@/api/task'
@@ -29,7 +29,7 @@ export const useAppStore = defineStore('app', () => {
     try {
       const trimmed = inputToken.trim()
       if (!trimmed) throw new Error('请输入访问令牌')
-      await auth(trimmed)
+      await verifyToken(trimmed)
       token.value = trimmed
       localStorage.setItem('sra-webui-token', trimmed)
       isAuthed.value = true
@@ -51,7 +51,7 @@ export const useAppStore = defineStore('app', () => {
     if (!token.value) return false
     checking.value = true
     try {
-      await auth(token.value)
+      await verifyToken(token.value)
       isAuthed.value = true
       return true
     } catch {
@@ -118,13 +118,15 @@ export const useAppStore = defineStore('app', () => {
   }
 
   async function loadStatus() {
-    sraStatus.value = await taskApi.getHealth()
+    const payload = await taskApi.getHealth()
+    health.value.ok = payload.ok
+    if (payload.sra) sraStatus.value = payload.sra
   }
 
   async function loadConfigs() {
     const payload = await configsApi.getConfigNames()
     configNames.value = payload
-    if (!selectedConfig.value && payload.length) selectedConfig.value = payload[0]
+    if (!selectedConfig.value && payload.length) selectedConfig.value = payload[0] ?? ''
   }
 
   async function loadConfigDetail() {
@@ -221,7 +223,6 @@ export const useAppStore = defineStore('app', () => {
   async function stopTask() {
     await runAction(async () => {
       await taskApi.stopTask()
-      await new Promise(resolve => setTimeout(resolve, 200))
       await loadStatus()
     }, '已发送停止指令')
   }

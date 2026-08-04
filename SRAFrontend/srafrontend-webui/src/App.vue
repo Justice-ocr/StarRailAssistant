@@ -17,7 +17,7 @@
       <WorkspaceHero
         :avatar="theme.avatar"
         :hero-bg="theme.backgrounds.hero"
-        :health-ok="true"
+        :health-ok="app.health.ok"
         :task-running="app.sraStatus.running"
         :streaming="app.streaming"
         :page-title="pageTitle"

@@ -395,6 +395,21 @@ public partial class AdvancedSettings : ObservableObject
     private string _remoteBaseUrl = "http://localhost:5000";
 
     [ObservableProperty]
+    [property: JsonPropertyName("webui.remote.enabled")]
+    [property: Description("是否开启本机 WebUI 远程连接服务")]
+    private bool _isWebUiRemoteConnectionEnabled;
+
+    [ObservableProperty]
+    [property: JsonPropertyName("webui.remote.autostart")]
+    [property: Description("是否在 Windows 登录后自动启动 WebUI 远程连接服务")]
+    private bool _isWebUiRemoteAutostartEnabled;
+
+    [ObservableProperty]
+    [property: JsonPropertyName("webui.remote.token")]
+    [property: Description("WebUI 远程访问令牌；开启远程访问前必须设置")]
+    private string _webUiRemoteToken = "";
+
+    [ObservableProperty]
     [property: JsonPropertyName("developerMode.overlay")]
     [property: Description("是否在叠加层显示调试信息")]
     private bool _isDebugOverlayEnabled;

@@ -12,6 +12,7 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0"/>
+        <PackageReference Include="System.Drawing.Common" Version="10.0.0"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -21,5 +22,5 @@
     <ItemGroup>
       <Content Include="..\SRAFrontend.Desktop\Assets\SRAicon.ico" Link="SRAicon.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
-    
+
 </Project>

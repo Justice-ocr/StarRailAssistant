@@ -23,6 +23,7 @@
 """
 
 import json
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -32,6 +33,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 
 ROOT_PATH = Path(__file__).resolve().parent.parent
 DOTNET_EXE = os.environ.get("DOTNET_EXE", "dotnet")
+PNPM_EXE = os.environ.get("PNPM_EXE", "pnpm.cmd" if os.name == "nt" else "pnpm")
 DESKTOP_WIN_X64_PUBLISH_PATH = ROOT_PATH / "SRAFrontend" / "SRAFrontend.Desktop" / "bin" / "Release" / "net10.0" / "win-x64" / "publish"
 SERVER_WIN_X64_PUBLISH_PATH = ROOT_PATH / "SRAFrontend" / "SRAFrontend.Server" / "bin" / "Release" / "net10.0" / "win-x64" / "publish"
 WEBUI_FRONTEND_PATH = ROOT_PATH / "SRAFrontend" / "srafrontend-webui"
@@ -107,6 +109,81 @@ def collect_webui_files(builder: ZipBuilder):
     builder.add(WEBUI_WWWROOT_PATH, WEBUI_WWWROOT_PATH.parent)
 
 
+def verify_python_dependencies():
+    required_modules = [
+        "cmd2", "cv2", "loguru", "onnxruntime", "PIL", "psutil",
+        "pyautogui", "pyclipper", "pyperclip", "pynput", "rapidocr",
+        "rich", "selenium", "shapely", "win32api", "win32gui",
+        "win32ui", "yaml",
+    ]
+    missing_modules = [name for name in required_modules if importlib.util.find_spec(name) is None]
+    if missing_modules:
+        raise RuntimeError(
+            "Missing Python dependencies for packaging: "
+            + ", ".join(missing_modules)
+            + f"\nInstall them with: {sys.executable} -m pip install -r requirements.txt"
+        )
+
+
+def copy_python_runtime(dist: Path):
+    if os.name != "nt":
+        return
+
+    dll_names = [
+        f"python{sys.version_info.major}{sys.version_info.minor}.dll",
+        f"python{sys.version_info.major}.dll",
+    ]
+    search_dirs = []
+    for value in (Path(sys.executable).parent, Path(sys.base_prefix), Path(sys.prefix)):
+        if value not in search_dirs:
+            search_dirs.append(value)
+
+    copied = set()
+    missing = []
+    for dll_name in dll_names:
+        dll_path = next((base / dll_name for base in search_dirs if (base / dll_name).exists()), None)
+        if dll_path is None:
+            missing.append(dll_name)
+            continue
+        shutil.copy2(dll_path, dist / dll_name)
+        copied.add(dll_name)
+
+    required_dll = dll_names[0]
+    if required_dll not in copied:
+        raise FileNotFoundError(
+            f"Required Python runtime DLL not found: {required_dll}; searched: "
+            + ", ".join(str(path) for path in search_dirs)
+        )
+    if missing:
+        print(f"  [WARN] Optional Python runtime DLLs not found: {', '.join(missing)}")
+
+    for runtime_name in ("vcruntime140.dll", "vcruntime140_1.dll"):
+        runtime_path = next((base / runtime_name for base in search_dirs if (base / runtime_name).exists()), None)
+        if runtime_path is not None:
+            shutil.copy2(runtime_path, dist / runtime_name)
+
+    for base in search_dirs:
+        dll_dir = base / "DLLs"
+        if not dll_dir.exists():
+            continue
+        for runtime_file in dll_dir.iterdir():
+            if runtime_file.suffix.lower() in (".dll", ".pyd"):
+                shutil.copy2(runtime_file, dist / runtime_file.name)
+        break
+
+
+def copy_site_packages_binaries(dist: Path):
+    suffix = f".cp{sys.version_info.major}{sys.version_info.minor}-win_amd64.pyd"
+    for file in SITE_PACKAGES_DIR.iterdir():
+        if file.is_file() and file.suffix.lower() in (".dll", ".pyd"):
+            shutil.copy2(file, dist / file.name)
+            if file.name.endswith(suffix):
+                shutil.copy2(file, dist / file.name.replace(suffix, ".pyd"))
+
+    for file in dist.rglob(f"*{suffix}"):
+        shutil.copy2(file, file.with_name(file.name.replace(suffix, ".pyd")))
+
+
 def nuitka_build(version: str):
     file_version = version.split("-")[0]
     print("Building Python program with Nuitka ...")
@@ -123,6 +200,11 @@ def nuitka_build(version: str):
         "--copyright=Copyright 2024 Shasnow",
         "--assume-yes-for-downloads",
         "--output-filename=SRA-cli",
+        "--include-module=selenium.webdriver.common.action_chains",
+        "--include-module=win32gui",
+        "--include-module=win32ui",
+        "--include-module=win32con",
+        "--include-module=win32crypt",
         "--remove-output",
         "--include-package=selenium.webdriver.edge",
         "--include-package=selenium.webdriver.firefox",
@@ -139,6 +221,8 @@ def nuitka_build(version: str):
 def copy_core_resources(dist: Path):
     print("Copying resources ...")
     dist.mkdir(parents=True, exist_ok=True)
+    copy_python_runtime(dist)
+    copy_site_packages_binaries(dist)
     shutil.copy2(ROOT_PATH / "LICENSE", dist / "LICENSE")
     shutil.copy2(ROOT_PATH / "README.md", dist / "README.md")
     # shutil.copy2(ROOT_PATH / "requirements.txt", dist / "requirements.txt")
@@ -158,7 +242,9 @@ def copy_core_resources(dist: Path):
         config_path = rapidocr_pkg / "config.yaml"
         if config_path.exists():
             shutil.copy2(config_path, dist / "rapidocr" / "config.yaml")
-            shutil.copy2(rapidocr_pkg / "default_models.yaml", dist / "rapidocr" / "default_models.yaml")
+        default_models_path = rapidocr_pkg / "default_models.yaml"
+        if default_models_path.exists():
+            shutil.copy2(default_models_path, dist / "rapidocr" / "default_models.yaml")
     else:
         print(f"  [WARN] rapidocr not found in {SITE_PACKAGES_DIR}, skipping OCR model copy")
     shutil.copytree(ROOT_PATH / "tasks", dist / "tasks")
@@ -180,7 +266,7 @@ def package_lite(version: str):
 
 def build_webui():
     print("Building WebUI ...")
-    cmd = ["pnpm", "build"]
+    cmd = [PNPM_EXE, "build"]
     result = subprocess.run(cmd, cwd=WEBUI_FRONTEND_PATH)
     if result.returncode != 0:
         print(f"[ERROR] WebUI build failed (exit code: {result.returncode})")
@@ -218,6 +304,9 @@ if __name__ == "__main__":
     with (ROOT_PATH / "ChangeLog2.0.md").open(encoding="utf-8") as f:
         changelog = f.read()
 
+    build_webui()
+    publish_dotnet_projects()
+    verify_python_dependencies()
     nuitka_build(version)
     copy_core_resources(DIST_DIR)
 
@@ -239,7 +328,7 @@ if __name__ == "__main__":
     builder.add(SERVER_WIN_X64_PUBLISH_PATH, SERVER_WIN_X64_PUBLISH_PATH)
     builder.snapshot(ROOT_PATH / f"StarRailAssistant_Full_v{version}.zip")
 
-    # package_webui(version)
+    package_webui(version)
 
     print("Packaging ServerDLC ...")
     server_dlc = ZipBuilder()

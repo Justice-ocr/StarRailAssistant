@@ -71,9 +71,25 @@ public partial class MainWindowViewModel(
     public async Task InitializeAsync()
     {
         await commonModel.CleanupOldExeAsync();
-        await commonModel.CheckAnnouncementAsync();
         await commonModel.CheckForUpdatesAsync();
         await commonModel.CheckDesktopShortcut();
+        try
+        {
+            commonModel.ApplyWebUiRemoteConnection();
+        }
+        catch
+        {
+            // The optional WebUI package must not block the desktop startup.
+        }
+        try
+        {
+            await commonModel.ApplyWebUiAutostartAsync();
+        }
+        catch
+        {
+            // A scheduled-task sync failure must not block the desktop startup.
+        }
+        await commonModel.CheckAnnouncementAsync();
     }
 
     [RelayCommand]
