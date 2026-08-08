@@ -518,7 +518,9 @@ public partial class TaskPageViewModel : PageViewModel
     public async Task GetTpConfigAsync()
     {
         if (_tpTasks.Length > 0) return;
-        _tpTasks = await _backendService.GetTpConfigAsync();
+        _tpTasks = TrailblazePowerMetadata.LoadFromDisk();
+        if (_tpTasks.Length == 0)
+            _tpTasks = await _backendService.GetTpConfigAsync();
         OnPropertyChanged(nameof(TpTaskNames));
         OnPropertyChanged(nameof(CurrentTpTaskLevels));
         OnPropertyChanged(nameof(GardenOfPlentyLevels1));
