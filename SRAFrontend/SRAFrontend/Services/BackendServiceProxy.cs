@@ -141,6 +141,9 @@ public class BackendServiceProxy(CliBackendService cliBackendService, PyBackendS
 
     public Task<TpTask[]> GetTpConfigAsync()
     {
+        if (!_initialized) Initialize();
+        if (string.IsNullOrWhiteSpace(_lastStartArguments))
+            StartBackend(settingsService.Settings.Advanced.BackendLaunchArgs);
         return _currentBackend.GetTpConfigAsync();
     }
 
