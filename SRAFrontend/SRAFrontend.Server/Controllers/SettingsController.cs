@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using SRAFrontend.Models;
@@ -31,7 +31,6 @@ public class SettingsController(SettingsService settingsService, ILogger<Setting
 
         foreach (var sectionProp in body.EnumerateObject())
         {
-            // 找到 AppSettings 中匹配的 section（如 "advanced" -> Settings.Advanced）
             var section = GetSection(settings, sectionProp.Name);
             if (section is null)
             {
@@ -57,6 +56,7 @@ public class SettingsController(SettingsService settingsService, ILogger<Setting
 
         settingsService.Save();
         logger.LogInformation("Updated settings: {Fields}", string.Join(", ", updated));
+        settingsService.Save();
         return Ok(new { updated });
     }
 
@@ -69,7 +69,6 @@ public class SettingsController(SettingsService settingsService, ILogger<Setting
             "update" => settings.Update,
             "advanced" => settings.Advanced,
             "notification" => settings.Notification,
-            "warpForecast" => settings.WarpForecast,
             _ => null
         };
     }

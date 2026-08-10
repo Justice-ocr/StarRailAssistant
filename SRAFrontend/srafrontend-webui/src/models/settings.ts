@@ -26,7 +26,7 @@ export function createSettingsModel(source: unknown): SettingsModel {
       'backend.remote.baseUrl': 'http://localhost:5000',
       'webui.remote.enabled': false,
       'webui.remote.autostart': false,
-      'webui.remote.token': 'starrailassistant',
+      'webui.remote.token': '',
       ...(raw.advanced ?? {})
     },
     notification: {

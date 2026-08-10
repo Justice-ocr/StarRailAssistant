@@ -11,6 +11,11 @@
         Orientation="Horizontal"
         HorizontalAlignment="Right"
         Spacing="10">
+        <!-- 任务通知配置按钮（仅任务页显示）-->
+        <Button Classes="Icon" Content="&#xe0ce;"
+                Command="{Binding OpenNotificationConfigCommand}"
+                ToolTip.Tip="任务通知配置"/>
+
         <TextBox Width="250"
                  Watermark="{x:Static lang:Resources.ConfigInputMarkText}"
                  Text="{Binding NewConfigName}"

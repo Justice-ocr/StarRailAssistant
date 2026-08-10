@@ -45,6 +45,8 @@ public class ConfigsController(ConfigService configService, CacheService cacheSe
 
         cacheService.Cache.ConfigNames.Add(configName);
         cacheService.SaveCache();
+        configService.TasksConfig = new TasksConfig { Name = configName };
+        configService.Save();
         return Ok(configName);
     }
 

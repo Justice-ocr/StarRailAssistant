@@ -18,6 +18,9 @@ class TasksConfig:
     CosmicStrife: CosmicStrifeConfig = None
     MissionAccomplished: MissionAccomplishedConfig = None
     Version: int = 0
+    TaskOrder: list[str] = field(default_factory=list)
+    CustomTasks: list[dict] = field(default_factory=list)
+    EnabledTasks: list[bool] = field(default_factory=lambda: [True, False, False, False, False])
 
     def to_dict(self) -> dict:
         """转换为字典"""
@@ -28,7 +31,10 @@ class TasksConfig:
             "receiveRewards": self.ReceiveRewards.to_dict(),
             "cosmicStrife": self.CosmicStrife.to_dict(),
             "missionAccomplished": self.MissionAccomplished.to_dict(),
-            "version": self.Version
+            "version": self.Version,
+            "taskOrder": self.TaskOrder,
+            "customTasks": self.CustomTasks,
+            "enabledTasks": self.EnabledTasks
         }
 
     @classmethod
@@ -41,7 +47,10 @@ class TasksConfig:
             "ReceiveRewards": ReceiveRewardsConfig.from_dict(data.get("receiveRewards", {})),
             "CosmicStrife": CosmicStrifeConfig.from_dict(data.get("cosmicStrife", {})),
             "MissionAccomplished": MissionAccomplishedConfig.from_dict(data.get("missionAccomplished", {})),
-            "Version": data.get("version", 0)
+            "Version": data.get("version", 0),
+            "TaskOrder": data.get("taskOrder", list()),
+            "CustomTasks": data.get("customTasks", list()),
+            "EnabledTasks": data.get("enabledTasks", [True, False, False, False, False])
         })
 
 @dataclass

@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using SRAFrontend.Data;
 using SRAFrontend.Migrations;
@@ -12,7 +16,20 @@ namespace SRAFrontend.Services;
 public class ConfigService(CacheService cacheService, ILogger<ConfigService> logger)
 {
     private readonly JsonSerializerOptions _jsonSerializerOptions = new() { WriteIndented = true };
-    public TasksConfig? TasksConfig { get; set; }
+    private const int AutoSaveDelayMs = 800;
+    private CancellationTokenSource? _autoSaveCts;
+    private TasksConfig? _tasksConfig;
+
+    public TasksConfig? TasksConfig
+    {
+        get => _tasksConfig;
+        set
+        {
+            Unsubscribe(_tasksConfig);
+            _tasksConfig = value;
+            Subscribe(_tasksConfig);
+        }
+    }
 
     public void Load()
     {
@@ -82,6 +99,13 @@ public class ConfigService(CacheService cacheService, ILogger<ConfigService> log
         File.WriteAllText(Path.Combine(DataPath.ConfigsDir, $"{TasksConfig?.Name}.json"), configJson);
     }
 
+    private async Task SaveAsync()
+    {
+        EncryptSensitiveFields();
+        var configJson = JsonSerializer.Serialize(TasksConfig, _jsonSerializerOptions);
+        await File.WriteAllTextAsync(Path.Combine(DataPath.ConfigsDir, $"{TasksConfig?.Name}.json"), configJson);
+    }
+
     private void EncryptSensitiveFields()
     {
         if (TasksConfig is null) return;
@@ -101,5 +125,85 @@ public class ConfigService(CacheService cacheService, ILogger<ConfigService> log
         Save();
         Load(configName);
         cacheService.Cache.CurrentConfigName = configName;
+    }
+
+    private void Subscribe(TasksConfig? config)
+    {
+        if (config is null) return;
+        SubscribePropertyChanged(config.StartGame);
+        SubscribePropertyChanged(config.TrailblazePower);
+        SubscribePropertyChanged(config.ReceiveRewards);
+        SubscribePropertyChanged(config.CosmicStrife);
+        SubscribePropertyChanged(config.MissionAccomplished);
+        SubscribeCollectionChanged(config.TrailblazePower.TaskList);
+        SubscribeCollectionChanged(config.ReceiveRewards.Rewards);
+        foreach (var customTask in config.CustomTasks)
+            SubscribePropertyChanged(customTask);
+    }
+
+    private void Unsubscribe(TasksConfig? config)
+    {
+        if (config is null) return;
+        UnsubscribePropertyChanged(config.StartGame);
+        UnsubscribePropertyChanged(config.TrailblazePower);
+        UnsubscribePropertyChanged(config.ReceiveRewards);
+        UnsubscribePropertyChanged(config.CosmicStrife);
+        UnsubscribePropertyChanged(config.MissionAccomplished);
+        UnsubscribeCollectionChanged(config.TrailblazePower.TaskList);
+        UnsubscribeCollectionChanged(config.ReceiveRewards.Rewards);
+        foreach (var customTask in config.CustomTasks)
+            UnsubscribePropertyChanged(customTask);
+    }
+
+    private void SubscribePropertyChanged(INotifyPropertyChanged notify) =>
+        notify.PropertyChanged += OnConfigChanged;
+
+    private void UnsubscribePropertyChanged(INotifyPropertyChanged notify) =>
+        notify.PropertyChanged -= OnConfigChanged;
+
+    private void SubscribeCollectionChanged(INotifyCollectionChanged collection) =>
+        collection.CollectionChanged += OnConfigCollectionChanged;
+
+    private void UnsubscribeCollectionChanged(INotifyCollectionChanged collection) =>
+        collection.CollectionChanged -= OnConfigCollectionChanged;
+
+    private void OnConfigChanged(object? sender, PropertyChangedEventArgs args) => ScheduleAutoSave();
+
+    private void OnConfigCollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
+    {
+        if (args.NewItems is not null)
+        {
+            foreach (var item in args.NewItems)
+                if (item is INotifyPropertyChanged notify)
+                    SubscribePropertyChanged(notify);
+        }
+        if (args.OldItems is not null)
+        {
+            foreach (var item in args.OldItems)
+                if (item is INotifyPropertyChanged notify)
+                    UnsubscribePropertyChanged(notify);
+        }
+        ScheduleAutoSave();
+    }
+
+    private void ScheduleAutoSave()
+    {
+        _autoSaveCts?.Cancel();
+        _autoSaveCts?.Dispose();
+        _autoSaveCts = new CancellationTokenSource();
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(AutoSaveDelayMs, _autoSaveCts.Token);
+                await SaveAsync();
+                logger.LogInformation("Config auto-saved: {ConfigName}", TasksConfig?.Name);
+            }
+            catch (OperationCanceledException)
+            {
+                // Continuous edits cancel the pending save.
+            }
+        });
     }
 }

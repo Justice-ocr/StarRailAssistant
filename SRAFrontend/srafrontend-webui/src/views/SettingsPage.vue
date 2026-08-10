@@ -65,7 +65,7 @@
           <div class="form-grid">
             <label class="field wide">
               <span>WebUI 访问令牌</span>
-              <el-input v-model="app.settingsModel.advanced['webui.remote.token']" type="password" show-password placeholder="starrailassistant" />
+              <el-input v-model="app.settingsModel.advanced['webui.remote.token']" type="password" show-password placeholder="请设置高强度访问令牌" />
             </label>
             <SwitchField label="WebUI 服务状态记录" active="开启" inactive="关闭" v-model="app.settingsModel.advanced['webui.remote.enabled']" />
             <SwitchField label="WebUI 自启动记录" active="开启" inactive="关闭" v-model="app.settingsModel.advanced['webui.remote.autostart']" />

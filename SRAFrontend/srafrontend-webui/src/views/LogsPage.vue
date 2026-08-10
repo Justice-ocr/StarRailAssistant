@@ -26,7 +26,7 @@ import { baseURL } from '@/api/request'
 const app = useAppStore()
 const scrollbar = ref<ScrollbarInstance>()
 
-let eventSource: EventSource | null = null
+let streamController: AbortController | null = null
 
 async function scrollLogsToBottom() {
   await nextTick()
@@ -34,21 +34,53 @@ async function scrollLogsToBottom() {
 }
 
 function closeStream() {
-  eventSource?.close()
-  eventSource = null
+  streamController?.abort()
+  streamController = null
 }
 
-function toggleStream() {
+async function toggleStream() {
   closeStream()
   if (!app.streaming) return
 
-  eventSource = new EventSource(`${baseURL}/Task/logs/stream?access_token=` + encodeURIComponent(app.token))
-  eventSource.onmessage = async (event) => {
-    app.logs.push(event.data)
-    if (app.logs.length > 600) app.logs.splice(0, app.logs.length - 600)
-    await scrollLogsToBottom()
-  }
-  eventSource.onerror = () => {
+  const controller = new AbortController()
+  streamController = controller
+  try {
+    const response = await fetch(`${baseURL}/Task/logs/stream`, {
+      headers: {
+        Accept: 'text/event-stream',
+        'X-Api-Key': app.token
+      },
+      signal: controller.signal
+    })
+    if (response.status === 401) app.logout()
+    if (!response.ok || !response.body) throw new Error(`日志流连接失败 (${response.status})`)
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    while (!controller.signal.aborted) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true }).replace(/\r/g, '')
+      let boundary = buffer.indexOf('\n\n')
+      while (boundary >= 0) {
+        const event = buffer.slice(0, boundary)
+        buffer = buffer.slice(boundary + 2)
+        const data = event
+          .split('\n')
+          .filter((line) => line.startsWith('data:'))
+          .map((line) => line.slice(5).trimStart())
+          .join('\n')
+        if (data) {
+          app.logs.push(data)
+          if (app.logs.length > 600) app.logs.splice(0, app.logs.length - 600)
+          await scrollLogsToBottom()
+        }
+        boundary = buffer.indexOf('\n\n')
+      }
+    }
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return
     app.streaming = false
     closeStream()
   }

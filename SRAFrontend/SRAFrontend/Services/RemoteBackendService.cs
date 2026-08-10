@@ -140,12 +140,6 @@ public class RemoteBackendService(IHttpClientFactory httpClientFactory, ILogger<
         }
     }
 
-    public Task<string> GetTaskStatusAsync()
-    {
-        logger.LogWarning("GetTaskStatus is not implemented for remote backend");
-        return Task.FromResult(string.Empty);
-    }
-
     public Task<List<Strategy>> GetStrategiesAsync()
     {
         logger.LogWarning("GetStrategies is not implemented for remote backend");
@@ -155,12 +149,6 @@ public class RemoteBackendService(IHttpClientFactory httpClientFactory, ILogger<
     public Task<TpTask[]> GetTpConfigAsync()
     {
         throw new NotImplementedException();
-    }
-
-    public Task<byte[]> GetGameScreenshotBytesAsync()
-    {
-        logger.LogWarning("GetGameScreenshotBytes is not implemented for remote backend");
-        return Task.FromResult(Array.Empty<byte>());
     }
 
     public Task<bool> SendInputAsync(string input)
@@ -179,6 +167,32 @@ public class RemoteBackendService(IHttpClientFactory httpClientFactory, ILogger<
     {
         logger.LogWarning("TaskSingle is not implemented for remote backend");
         return Task.FromResult(false);
+    }
+
+    public async Task<string> GetTaskStatusAsync()
+    {
+        try
+        {
+            return await Client.GetStringAsync($"{BaseUrl}/Task/status");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to get task status from remote backend");
+            return string.Empty;
+        }
+    }
+
+    public async Task<byte[]> GetGameScreenshotBytesAsync()
+    {
+        try
+        {
+            return await Client.GetByteArrayAsync($"{BaseUrl}/Game/screenshot");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to get game screenshot from remote backend");
+            return [];
+        }
     }
 
     /// <summary>
@@ -224,8 +238,8 @@ public class RemoteBackendService(IHttpClientFactory httpClientFactory, ILogger<
     {
         try
         {
-            var running = await Client.GetFromJsonAsync<bool>($"{BaseUrl}/Task/status", ct);
-            IsTaskRunning = running;
+            var status = await Client.GetFromJsonAsync<RemoteTaskStatus>($"{BaseUrl}/Task/status", ct);
+            IsTaskRunning = status?.Running ?? false;
         }
         catch (Exception ex)
         {
@@ -260,4 +274,9 @@ public class RemoteBackendService(IHttpClientFactory httpClientFactory, ILogger<
             Outputted?.Invoke(data);
         }
     }
+}
+
+internal sealed class RemoteTaskStatus
+{
+    public bool Running { get; set; }
 }

@@ -19,6 +19,10 @@ public static class DataPath
     public static readonly string FrontendLogsDir = Path.Combine(AppDataDir, "logs");
     public static readonly string BackgroundCacheDir = Path.Combine(AppDataDir, "cache", "backgrounds");
     public static readonly string BackendLogsDir = Path.Combine(AppRoot, "log");
+    public static readonly string RuntimeDir = Path.Combine(AppDataDir, "runtime");
+    public static readonly string RuntimeSessionJson = Path.Combine(RuntimeDir, "sra-session.json");
+    public static readonly string RuntimeStopRequest = Path.Combine(RuntimeDir, "stop.request");
+    public static readonly string RuntimeTaskLock = Path.Combine(RuntimeDir, "task.lock");
     public static readonly string ReportsDir = Path.Combine(AppRoot, "reports");
     public static readonly string SourceCodeDir = Path.Combine(AppRoot, "SRA");
     private static readonly string PythonDir = Path.Combine(AppRoot, "python");
@@ -35,6 +39,7 @@ public static class DataPath
         EnsureDirectoryExists(ConfigsDir);
         EnsureDirectoryExists(FrontendLogsDir);
         EnsureDirectoryExists(BackgroundCacheDir);
+        EnsureDirectoryExists(RuntimeDir);
         // EnsureDirectoryExists(PythonDir);
         // EnsureDirectoryExists(BackendLogsDir);
         // EnsureDirectoryExists(ReportsDir);

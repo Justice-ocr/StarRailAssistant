@@ -54,3 +54,17 @@ def load_data(typ: str) -> dict[Any, Any]:
 
 def load_cache():
     return load_data('cache')
+
+
+def load_app_config():
+    path = 'SRACore/config.toml'
+    try:
+        import tomllib
+        with open(path, 'rb') as f:
+            return tomllib.load(f)
+    except FileNotFoundError:
+        logger.error(Resource.config_fileNotFound(path))
+        return None
+    except Exception as e:
+        logger.error(Resource.config_exception(path, str(e)))
+        return None

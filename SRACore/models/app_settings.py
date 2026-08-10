@@ -391,6 +391,9 @@ class AdvancedSettings:
     backendLaunchArgs: str = "--inline"
     isRemoteEnabled: bool = False
     remoteBaseUrl: str = "http://localhost:5000"
+    isWebUiRemoteConnectionEnabled: bool = False
+    isWebUiRemoteAutostartEnabled: bool = False
+    webUiRemoteToken: str = ""
     isDebugOverlayEnabled: bool = False
     isDeveloperModeEnabled: bool = False
     isPythonEnabled: bool = False
@@ -404,6 +407,9 @@ class AdvancedSettings:
             "backend.launchArgs": self.backendLaunchArgs,
             "backend.remote.enabled": self.isRemoteEnabled,
             "backend.remote.baseUrl": self.remoteBaseUrl,
+            "webui.remote.enabled": self.isWebUiRemoteConnectionEnabled,
+            "webui.remote.autostart": self.isWebUiRemoteAutostartEnabled,
+            "webui.remote.token": self.webUiRemoteToken,
             "developerMode.overlay": self.isDebugOverlayEnabled,
             "developerMode.enabled": self.isDeveloperModeEnabled,
             "developerMode.python.enabled": self.isPythonEnabled,
@@ -419,6 +425,9 @@ class AdvancedSettings:
             "backendLaunchArgs": data.get("backend.launchArgs", "--inline"),
             "isRemoteEnabled": data.get("backend.remote.enabled", False),
             "remoteBaseUrl": data.get("backend.remote.baseUrl", "http://localhost:5000"),
+            "isWebUiRemoteConnectionEnabled": data.get("webui.remote.enabled", False),
+            "isWebUiRemoteAutostartEnabled": data.get("webui.remote.autostart", False),
+            "webUiRemoteToken": data.get("webui.remote.token", ""),
             "isDebugOverlayEnabled": data.get("developerMode.overlay", False),
             "isDeveloperModeEnabled": data.get("developerMode.enabled", False),
             "isPythonEnabled": data.get("developerMode.python.enabled", False),

@@ -73,15 +73,18 @@ public class App : Application
         services.AddTransient<PageViewModel, HomePageViewModel>();
         services.AddTransient<PageViewModel, TaskPageViewModel>();
         services.AddTransient<PageViewModel, ExtensionPageViewModel>();
+        services.AddTransient<PageViewModel, ScriptStorePageViewModel>();
         services.AddTransient<PageViewModel, ConsolePageViewModel>();
         services.AddTransient<PageViewModel, SettingsPageViewModel>();
         services.AddTransient<UpdateService>();
         services.AddTransient<AnnouncementService>();
         services.AddTransient<CommonModel>();
+        services.AddSingleton<WebUiAutostartService>();
         services.AddSingleton<ControlPanelViewModel>();
         services.AddSingleton<ISukiToastManager, SukiToastManager>();
         services.AddSingleton<SettingsService>();
         services.AddSingleton<CacheService>();
+        services.AddSingleton<RuntimeTaskService>();
         // Register backend implementations and proxy
         services.AddSingleton<CliBackendService>();
         services.AddSingleton<PyBackendService>();
@@ -90,6 +93,7 @@ public class App : Application
         services.AddSingleton<RegistryService>();
         services.AddSingleton<ConfigService>();
         services.AddSingleton<ReportService>();
+        services.AddSingleton<ScriptService>();
         services.AddSingleton<OverlayService>();
         services.AddHttpClient("GlobalClient", client =>
         {

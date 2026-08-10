@@ -561,7 +561,7 @@ class IOperator(ABC):
                          to_x: float | None = None, to_y: float | None = None,
                          trace: bool = False) -> list[Box]:
         """在指定区域检测矩形
-        
+
         Args:
             min_w (int): 最小矩形宽度。
             max_w (int): 最大矩形宽度。

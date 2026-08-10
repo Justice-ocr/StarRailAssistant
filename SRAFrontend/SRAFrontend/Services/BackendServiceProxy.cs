@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using SRAFrontend.Models;
@@ -9,11 +10,12 @@ using SRAFrontend.Models;
 namespace SRAFrontend.Services;
 
 public class BackendServiceProxy(CliBackendService cliBackendService, PyBackendService pyBackendService,
-    IServiceProvider serviceProvider, SettingsService settingsService) : IBackendService
+    IServiceProvider serviceProvider, SettingsService settingsService, RuntimeTaskService runtimeTaskService) : IBackendService
 {
     private RemoteBackendService? _remoteBackendService;
     private IBackendService _currentBackend = cliBackendService;
     private string _lastStartArguments = string.Empty;
+    private Timer? _runtimeStatusTimer;
     private bool _initialized;
 
     private void Initialize()
@@ -39,7 +41,8 @@ public class BackendServiceProxy(CliBackendService cliBackendService, PyBackendS
             _currentBackend = cliBackendService;
 
         AttachToCurrentBackend();
-        IsTaskRunning = _currentBackend.IsTaskRunning;
+        RefreshRuntimeStatus();
+        _runtimeStatusTimer = new Timer(_ => RefreshRuntimeStatus(), null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
 
         // 监听设置变化，动态切换后端和更新配置
         settingsService.SettingsPropertyChanged += OnSettingsPropertyChanged;
@@ -95,23 +98,39 @@ public class BackendServiceProxy(CliBackendService cliBackendService, PyBackendS
     public Task<bool> TaskRunAsync(string? configName)
     {
         if (!_initialized) Initialize();
+        if (string.IsNullOrWhiteSpace(_lastStartArguments))
+            StartBackend(settingsService.Settings.Advanced.BackendLaunchArgs);
+        RefreshRuntimeStatus();
+        if (runtimeTaskService.IsRunning())
+            return Task.FromResult(false);
         return _currentBackend.TaskRunAsync(configName);
     }
 
     public Task<bool> TaskSingleAsync(string taskName)
     {
         if (!_initialized) Initialize();
+        if (string.IsNullOrWhiteSpace(_lastStartArguments))
+            StartBackend(settingsService.Settings.Advanced.BackendLaunchArgs);
+        RefreshRuntimeStatus();
+        if (runtimeTaskService.IsRunning())
+            return Task.FromResult(false);
         return _currentBackend.TaskSingleAsync(taskName);
     }
 
     public Task<bool> TaskStopAsync()
     {
         if (!_initialized) Initialize();
+        if (runtimeTaskService.RequestStop("desktop"))
+        {
+            RefreshRuntimeStatus();
+            return Task.FromResult(true);
+        }
         return _currentBackend.TaskStopAsync();
     }
 
     public Task<string> GetTaskStatusAsync()
     {
+        if (!_initialized) Initialize();
         return _currentBackend.GetTaskStatusAsync();
     }
 
@@ -122,12 +141,22 @@ public class BackendServiceProxy(CliBackendService cliBackendService, PyBackendS
 
     public Task<TpTask[]> GetTpConfigAsync()
     {
+        if (!_initialized) Initialize();
+        if (string.IsNullOrWhiteSpace(_lastStartArguments))
+            StartBackend(settingsService.Settings.Advanced.BackendLaunchArgs);
         return _currentBackend.GetTpConfigAsync();
     }
 
     public Task<byte[]> GetGameScreenshotBytesAsync()
     {
+        if (!_initialized) Initialize();
         return _currentBackend.GetGameScreenshotBytesAsync();
+    }
+
+    private void RefreshRuntimeStatus()
+    {
+        var runtimeRunning = runtimeTaskService.IsRunning();
+        IsTaskRunning = runtimeRunning || _currentBackend.IsTaskRunning;
     }
 
     private void ApplyPythonSettings()
@@ -158,9 +187,7 @@ public class BackendServiceProxy(CliBackendService cliBackendService, PyBackendS
         if (e.PropertyName == nameof(AdvancedSettings.IsRemoteEnabled) && _remoteBackendService is not null)
         {
             var useRemote = settingsService.Settings.Advanced.IsRemoteEnabled;
-            IBackendService target = useRemote
-                ? _remoteBackendService
-                : settingsService.Settings.Advanced.IsPythonEnabled ? pyBackendService : cliBackendService;
+            IBackendService target = useRemote ? _remoteBackendService : cliBackendService;
             SetCurrentBackend(target);
         }
 
@@ -215,6 +242,6 @@ public class BackendServiceProxy(CliBackendService cliBackendService, PyBackendS
     private void OnBackendPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(IsTaskRunning) || string.IsNullOrEmpty(e.PropertyName))
-            IsTaskRunning = _currentBackend.IsTaskRunning;
+            RefreshRuntimeStatus();
     }
 }

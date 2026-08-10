@@ -3,32 +3,97 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:suki="https://github.com/kikipoulet/SukiUI"
-             xmlns:lang="clr-namespace:SRAFrontend.Localization;assembly=SRAFrontend"
              xmlns:viewModels="clr-namespace:SRAFrontend.Desktop.ViewModels"
              xmlns:taskViews="clr-namespace:SRAFrontend.Desktop.Views.TaskViews"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="viewModels:TaskPageViewModel"
              x:Class="SRAFrontend.Desktop.Views.TaskPageView">
     <Border Margin="10">
-        <Grid RowDefinitions="Auto, *">
+        <Grid RowDefinitions="Auto,Auto,*">
             <suki:GlassCard Content="{Binding ControlPanelViewModel}" />
-            <TabControl Grid.Row="1">
-                <TabItem Header="{x:Static lang:Resources.StartGameText}">
-                    <taskViews:StartGameView />
-                </TabItem>
-                <TabItem Header="{x:Static lang:Resources.TrailblazePowerText}">
-                    <taskViews:TrailblazePowerView />
-                </TabItem>
-                <TabItem Header="{x:Static lang:Resources.ReceiveRewardsText}">
-                    <taskViews:ReceiveRewardsView />
-                </TabItem>
-                <TabItem Header="{x:Static lang:Resources.CosmicStrifeText}">
-                    <taskViews:CosmicStrife />
-                </TabItem>
-                <TabItem Header="{x:Static lang:Resources.InTheEndText}">
-                    <taskViews:MissionAccomplishView />
-                </TabItem>
-            </TabControl>
+
+            <Border Grid.Row="1" Margin="0,4,0,0"
+                    BorderBrush="{DynamicResource SukiLightBorderBrush}"
+                    BorderThickness="0,0,0,1">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl x:Name="TabHeaderList" ItemsSource="{Binding TaskOrderList}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="2"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:TaskOrderItem">
+                                <Panel>
+                                    <Button IsVisible="{Binding IsAddButton}"
+                                            VerticalAlignment="Bottom"
+                                            CornerRadius="6,6,0,0"
+                                            BorderThickness="1,1,1,0"
+                                            BorderBrush="{DynamicResource SukiLightBorderBrush}"
+                                            Background="{DynamicResource SukiCardBackground}"
+                                            Padding="12,6"
+                                            Cursor="Hand"
+                                            ToolTip.Tip="添加自定义任务"
+                                            Command="{Binding $parent[ItemsControl].((viewModels:TaskPageViewModel)DataContext).AddCustomTaskCommand}">
+                                        <TextBlock Text="+"
+                                                   FontSize="14"
+                                                   Opacity="0.5"
+                                                   VerticalAlignment="Center"
+                                                   HorizontalAlignment="Center"/>
+                                    </Button>
+                                    <Border IsVisible="{Binding IsFixedTab}"
+                                            Padding="12,6"
+                                            Cursor="Hand"
+                                            PointerPressed="FixedTabHeader_PointerPressed">
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   FontSize="14"
+                                                   VerticalAlignment="Center"/>
+                                    </Border>
+                                    <Border IsVisible="{Binding IsMovable}"
+                                            CornerRadius="6,6,0,0"
+                                            BorderThickness="1,1,1,0"
+                                            BorderBrush="{DynamicResource SukiLightBorderBrush}"
+                                            Background="{DynamicResource SukiCardBackground}"
+                                            Padding="12,6"
+                                            Cursor="SizeWestEast"
+                                            PointerPressed="TabHeader_PointerPressed"
+                                            ToolTip.Tip="拖动调整顺序">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       FontSize="14"
+                                                       VerticalAlignment="Center"/>
+                                            <Border IsVisible="{Binding IsCustom}"
+                                                    Padding="4,1"
+                                                    CornerRadius="3"
+                                                    Background="{DynamicResource SukiAccentColor}"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="自定义"
+                                                           FontSize="10"
+                                                           Foreground="White"
+                                                           VerticalAlignment="Center"/>
+                                            </Border>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Height="3" VerticalAlignment="Bottom"
+                                            Background="{DynamicResource SukiAccentColor}"
+                                            IsVisible="{Binding IsSelected}"
+                                            CornerRadius="2,2,0,0"/>
+                                </Panel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
+
+            <Grid Grid.Row="2">
+                <taskViews:StartGameView IsVisible="{Binding StartGameTaskSelected}"/>
+                <taskViews:TrailblazePowerView IsVisible="{Binding TrailblazePowerTaskSelected}"/>
+                <taskViews:ReceiveRewardsView IsVisible="{Binding ReceiveRewardsTaskSelected}"/>
+                <taskViews:CosmicStrife IsVisible="{Binding CosmicStrifeTaskSelected}"/>
+                <taskViews:MissionAccomplishView IsVisible="{Binding MissionAccomplishTaskSelected}"/>
+                <taskViews:CustomTaskView IsVisible="{Binding CustomTaskSelected}"/>
+            </Grid>
         </Grid>
     </Border>
 </UserControl>

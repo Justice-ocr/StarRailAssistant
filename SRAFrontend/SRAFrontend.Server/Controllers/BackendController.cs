@@ -1,11 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using SRAFrontend.Services;
 
 namespace SRAFrontend.Server.Controllers;
 
 [ApiController]
 [Route("[controller]")]
-public class BackendController(IBackendService backendService): Controller
+public class BackendController(IBackendService backendService) : Controller
 {
     [HttpPost("restart")]
     [EndpointSummary("重启后端")]
@@ -15,7 +15,7 @@ public class BackendController(IBackendService backendService): Controller
     {
         try
         {
-            await backendService.RestartBackendAsync(request?.Arguments ?? "--inline --no-admin");
+            await backendService.RestartBackendAsync(request?.Arguments ?? "--inline");
             return Ok(new R(true, "Backend restarted successfully"));
         }
         catch (Exception)
