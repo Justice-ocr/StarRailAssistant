@@ -460,6 +460,13 @@ class SRACli(cmd2.Cmd):
         else:
             self.poutput(Resource.cli_invalidArguments('notify'))
 
+    def do_test(self, arg: str):
+        """Backward-compatible shorthand for notification channel tests."""
+        normalized = arg.strip()
+        if not normalized.startswith("test"):
+            normalized = f"test {normalized}".strip()
+        self.do_notify(normalized)
+
     # endregion
 
     # region 生命周期管理

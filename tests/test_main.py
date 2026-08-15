@@ -109,3 +109,15 @@ def test_main_runs_command_argument_without_cmd2_retokenizing_it(monkeypatch):
     assert core_main.sys.argv == ["main.py"]
 
 
+def test_cli_test_shorthand_forwards_to_notify(monkeypatch):
+    from SRACore.cli2 import SRACli
+
+    captured: list[str] = []
+    cli = SRACli.__new__(SRACli)
+    cli.do_notify = lambda command: captured.append(command)
+
+    cli.do_test("onebot")
+
+    assert captured == ["test onebot"]
+
+
