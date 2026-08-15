@@ -24,6 +24,7 @@ def main():
     setup_argumentparser(parser)
     # 解析参数
     args = parser.parse_known_args()[0]
+    startup_commands = _split_startup_commands(args.command)
     if not is_admin():
         if args.no_admin:
             sys.argv.remove('--no-admin')  # 移除参数，不向下传递
@@ -36,17 +37,14 @@ def main():
     logger.info(f"Current version: {VERSION}")
     logger.debug(f"cwd: {os.getcwd()}")
 
-    if args.command:
-        for cmd in args.command:
-            sys.argv.remove(cmd)  # 移除命令参数, 避免重复执行
-        cmd_str = " ".join(args.command).replace('&', '+')
-        commands = cmd_str.split('+')
-        for cmd in commands:
-            sys.argv.append(cmd)
-        print(sys.argv)
     inline = args.inline
     if inline:
         sys.argv.remove('--inline')
+
+    # cmd2 also parses sys.argv during initialization.  Leaving --command and
+    # its payload there makes it re-tokenize a command such as "notify test"
+    # and can dispatch only "test".  Run queued commands explicitly instead.
+    sys.argv = [sys.argv[0]]
     # 延迟导入 SRACli
     dynamic_import("tasks")  # 动态导入 tasks 包下的所有模块
     from SRACore.cli2 import SRACli
@@ -55,7 +53,16 @@ def main():
     if inline:
         cli_instance.intro = ''
         cli_instance.prompt = ''
+    if startup_commands and cli_instance.runcmds_plus_hooks(startup_commands):
+        return
     cli_instance.cmdloop()
+
+
+def _split_startup_commands(commands: list[str] | None) -> list[str]:
+    if not commands:
+        return []
+    command_text = " ".join(commands).replace('&', '+')
+    return [command.strip() for command in command_text.split('+') if command.strip()]
 
 
 def setup_argumentparser(parser: argparse.ArgumentParser) -> None:

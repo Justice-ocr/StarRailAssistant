@@ -68,3 +68,44 @@ def test_main_version_option_works_in_real_process():
         shutil.rmtree(temp_root.parent, ignore_errors=True)
 
 
+def test_main_runs_command_argument_without_cmd2_retokenizing_it(monkeypatch):
+    """A multi-word --command must reach cmd2 as one complete command."""
+
+    captured: dict[str, object] = {}
+
+    class FakeCli:
+        def __init__(self, _settings_service):
+            self.intro = ""
+            self.prompt = ""
+
+        def runcmds_plus_hooks(self, commands):
+            captured["commands"] = commands
+            return True
+
+        def cmdloop(self):
+            captured["cmdloop_called"] = True
+
+    import SRACore.cli2 as cli2
+
+    monkeypatch.setattr(
+        core_main,
+        "SettingsService",
+        lambda: SimpleNamespace(settings=SimpleNamespace(Display=SimpleNamespace(language=0))),
+    )
+    monkeypatch.setattr(core_main.Resource, "set_language", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(core_main, "is_admin", lambda: True)
+    monkeypatch.setattr(core_main, "dynamic_import", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(cli2, "SRACli", FakeCli)
+    monkeypatch.setattr(
+        core_main.sys,
+        "argv",
+        ["main.py", "--inline", "--command", "notify", "test", "onebot+exit"],
+    )
+
+    core_main.main()
+
+    assert captured["commands"] == ["notify test onebot", "exit"]
+    assert "cmdloop_called" not in captured
+    assert core_main.sys.argv == ["main.py"]
+
+
