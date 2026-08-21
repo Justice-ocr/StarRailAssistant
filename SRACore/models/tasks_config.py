@@ -59,6 +59,7 @@ class StartGameConfig:
 
     isEnabled: bool = True
     gameChannel: int = 0
+    gameServer: int = 0
     gamePath: str = ""
     isUseGlobalGamePath: bool = True
     isAutoLogin: bool = True
@@ -71,6 +72,7 @@ class StartGameConfig:
         return {
             "enabled": self.isEnabled,
             "game.channel": self.gameChannel,
+            "game.server": self.gameServer,
             "game.path": self.gamePath,
             "game.useGlobalPath": self.isUseGlobalGamePath,
             "autologin": self.isAutoLogin,
@@ -85,6 +87,7 @@ class StartGameConfig:
         return cls(**{
             "isEnabled": data.get("enabled", True),
             "gameChannel": data.get("game.channel", 0),
+            "gameServer": data.get("game.server", 0),
             "gamePath": data.get("game.path", ""),
             "isUseGlobalGamePath": data.get("game.useGlobalPath", True),
             "isAutoLogin": data.get("autologin", True),

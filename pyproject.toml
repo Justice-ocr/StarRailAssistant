@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "starrailassistant"
-version = "2.19.0"
+version = "2.20.0"
 description = "崩坏：星穹铁道自动化助手"
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -33,6 +33,7 @@ dependencies = [
     "cmd2==4.1.2",
     "rapidocr==3.9.1",
     "onnxruntime==1.27.0",
+    "pydantic==2.13.4",
     "pyautogui==0.9.54; os_name == 'nt'",
     "pyperclip==1.11.0; os_name == 'nt'",
     "pywin32==311; os_name == 'nt'",

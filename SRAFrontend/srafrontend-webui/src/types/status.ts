@@ -6,13 +6,11 @@ export type SraStatus = {
   detail?: string
   mode?: string
   configs?: string[]
-  configNames?: string[]
-  sessionId?: string
-  task?: string
-  taskName?: string
+  session_id?: string
+  unit?: string
   status?: string
-  state?: string
-  owner?: string
+  error?: string
+  progress?: [number, number]
 }
 
 export type HealthInfo = {

@@ -1,35 +1,48 @@
+using System.Collections.ObjectModel;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using SRAFrontend.Data;
 using SRAFrontend.Services;
 
 namespace SRAFrontend.Desktop.ViewModels;
 
-public class ExtensionPageViewModel(IBackendService backendService)
+public partial class ExtensionPageViewModel(IBackendService backendService)
     : PageViewModel(PageName.Extension, "\uE596")
 {
-    private bool _enableAutoPlot;
-    private bool _skipPlot;
+    [ObservableProperty] private bool _isLoadingExtensions;
 
-    public bool EnableAutoPlot
+    public ObservableCollection<ExtensionCardViewModel> Extensions { get; } = [];
+
+    /// <summary>
+    /// 自动加载（页面导航时调用）
+    /// </summary>
+    [RelayCommand]
+    private async Task LoadExtensionsAsync()
     {
-        get => _enableAutoPlot;
-        set
-        {
-            _enableAutoPlot = value;
-            OnPropertyChanged();
-            _ = backendService.SendInputAsync(value
-                ? "trigger enable AutoPlotTrigger"
-                : "trigger disable AutoPlotTrigger");
-        }
+        if (Extensions.Count > 0)
+            return;
+        await RefreshExtensionsAsync();
     }
 
-    public bool SkipPlot
+    /// <summary>
+    /// 手动刷新（用户点击刷新按钮），无视缓存
+    /// </summary>
+    [RelayCommand]
+    private async Task RefreshExtensionsAsync()
     {
-        get => _skipPlot;
-        set
+        if (IsLoadingExtensions) return;
+        IsLoadingExtensions = true;
+        try
         {
-            _skipPlot = value;
-            OnPropertyChanged();
-            _ = backendService.SendInputAsync($"trigger set AutoPlotTrigger skip_plot --type bool {value}");
+            var extensions = await backendService.GetExtensionsAsync();
+            Extensions.Clear();
+            foreach (var info in extensions)
+                Extensions.Add(new ExtensionCardViewModel(info, backendService));
+        }
+        finally
+        {
+            IsLoadingExtensions = false;
         }
     }
 }

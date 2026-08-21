@@ -137,6 +137,7 @@ class RRIMG:
     REVERSE_ORDER = f"{BASE}/reverse_order.png"
     SYNTHESIS = f"{BASE}/synthesis.png"
     SYNTHESIS2 = f"{BASE}/synthesis2.png"
+    TRAILBLAZER_PROFILE_PAGE = f"{BASE}/trailblazer_profile_page.png"
     UPGRADE_MATERIALS = f"{BASE}/upgrade_materials.png"
 # endregion
 
@@ -173,6 +174,7 @@ class CWIMG:
     OPEN = f"{BASE}/open.png"
     PREPARATION_STAGE = f"{BASE}/preparation_stage.png"
     QUIT = f"{BASE}/quit.png"
+    RETREAT = f"{BASE}/retreat.png"
     REPLENISH_STAGE = f"{BASE}/replenish_stage.png"
     RETURN_HIGHEST_RANK = f"{BASE}/return_highest_rank.png"
     RIGHT = f"{BASE}/right.png"

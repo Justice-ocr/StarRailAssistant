@@ -8,29 +8,68 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="SRAFrontend.Desktop.Views.ExtensionPageView"
              x:DataType="viewModels:ExtensionPageViewModel">
-    <ScrollViewer>
-        <StackPanel Spacing="10" Margin="10">
-
-            <!-- 自动对话 -->
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="16">
+            <!-- 固定卡片区域 -->
             <suki:GlassCard>
-                <Expander Header="自动对话" IsExpanded="False">
-                    <Grid ColumnDefinitions="Auto,Auto,*" RowDefinitions="Auto,Auto" Margin="0,8,0,0">
-                        <Label Grid.Row="0" Content="启用" />
-                        <ToggleSwitch Grid.Row="0" Grid.Column="1" IsChecked="{Binding EnableAutoPlot}"/>
-                        <Label Grid.Row="1" Grid.Column="0" Content="跳过对话" />
-                        <ToggleSwitch Grid.Row="1" Grid.Column="1" IsChecked="{Binding SkipPlot}"/>
+                <suki:GroupBox Header="{x:Static lang:Resources.ExtensionText}">
+                    <Grid ColumnDefinitions="Auto, Auto, Auto" RowDefinitions="Auto" ColumnSpacing="12">
+                        <suki:GlassCard Grid.Column="0" Grid.Row="0" Width="200">
+                            <suki:GroupBox Header="猫猫糕友人帐">
+                                <StackPanel Spacing="4">
+                                    <Label Content="查询对应猫猫糕UID"/>
+                                    <Button Content="寻找猫猫糕"
+                                            Click="Button_OnClick"/>
+                                </StackPanel>
+                            </suki:GroupBox>
+                        </suki:GlassCard>
                     </Grid>
-                </Expander>
+                </suki:GroupBox>
             </suki:GlassCard>
 
-
-            <!-- 猫猫糕友人帐 -->
+            <!-- 动态扩展区域 -->
             <suki:GlassCard>
-                <suki:GroupBox Header="猫猫糕友人帐">
-                    <StackPanel Spacing="4">
-                        <Label Content="查询对应猫猫糕UID"/>
-                        <Button Content="寻找猫猫糕"
-                                Click="Button_OnClick"/>
+                <suki:GroupBox Header="动态扩展">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="从后端加载的扩展列表" FontSize="12" Opacity="0.6"
+                                       VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Content="刷新" Classes="Flat"
+                                    Command="{Binding RefreshExtensionsCommand}"/>
+                        </Grid>
+                        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingExtensions}"/>
+                        <ItemsControl ItemsSource="{Binding Extensions}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="viewModels:ExtensionCardViewModel">
+                                    <suki:GlassCard Margin="0,4" Padding="12">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="15"/>
+                                            <TextBlock Text="{Binding Description}" FontSize="12"
+                                                       Opacity="0.6" TextWrapping="Wrap"/>
+                                            <TextBlock FontSize="11" Opacity="0.5">
+                                                <Run Text="{Binding ExtensionClass}"/>
+                                                <Run Text=" / "/>
+                                                <Run Text="{Binding ConfigClass}"/>
+                                            </TextBlock>
+                                            <StackPanel Orientation="Horizontal" Spacing="8"
+                                                        HorizontalAlignment="Right" Margin="0,4,0,0">
+                                                <ProgressBar IsVisible="{Binding IsRunning}"
+                                                             IsIndeterminate="True" Width="40"/>
+                                                <Button Content="运行" Classes="Accent"
+                                                        Command="{Binding RunCommand}"
+                                                        IsVisible="{Binding !IsRunning}"/>
+                                                <Button Content="停止"
+                                                        Command="{Binding StopCommand}"
+                                                        IsVisible="{Binding IsRunning}"/>
+                                                <Button Content="配置" Classes="Flat"
+                                                        Command="{Binding ConfigureCommand}"
+                                                        IsVisible="{Binding HasConfig}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </suki:GlassCard>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </suki:GroupBox>
             </suki:GlassCard>

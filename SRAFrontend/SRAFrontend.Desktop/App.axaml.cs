@@ -78,6 +78,7 @@ public class App : Application
         services.AddTransient<PageViewModel, SettingsPageViewModel>();
         services.AddTransient<UpdateService>();
         services.AddTransient<AnnouncementService>();
+        services.AddTransient<ActivityService>();
         services.AddTransient<CommonModel>();
         services.AddSingleton<WebUiAutostartService>();
         services.AddSingleton<ControlPanelViewModel>();

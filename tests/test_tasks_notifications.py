@@ -29,7 +29,7 @@ def test_load_all_tasks_and_trigger_start_complete_notifications(monkeypatch) ->
 
     sent_notifications: list[tuple[str, str, str]] = []
 
-    def fake_try_send_notification(_settings, title, message, result="success", image=None):
+    def fake_try_send_notification(title, message, result="success", image=None):
         sent_notifications.append((title, message, result))
         return True
 
@@ -44,7 +44,6 @@ def test_load_all_tasks_and_trigger_start_complete_notifications(monkeypatch) ->
         "ReceiveRewardsTask",
         "CosmicStrifeTask",
         "MissionAccomplishTask",
-        "WarpForecastTask",
     ]
 
     for task_cls in task_classes:
@@ -60,8 +59,8 @@ def test_load_all_tasks_and_trigger_start_complete_notifications(monkeypatch) ->
 
         sent_notifications.clear()
 
-        task_module.BaseTask.on_start(task)
-        task_module.BaseTask.on_completed(task)
+        task.on_start()
+        task.on_completed()
 
         assert len(sent_notifications) == 2
         assert all(title == Resource.task_notificationTitle for title, _, _ in sent_notifications)

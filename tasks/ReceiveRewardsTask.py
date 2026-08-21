@@ -84,6 +84,8 @@ class ReceiveRewardsTask(BaseTask):
         logger.info("执行任务：签证奖励")
         if self.operator.click_point(0.92, 0.10, after_sleep=1):
             if self.operator.click_point(0.82, 0.13, after_sleep=1):
+                if self.operator.wait_img(RRIMG.TRAILBLAZER_PROFILE_PAGE) is None:
+                    raise RuntimeError("未能进入签证奖励页面，请检查游戏状态")
                 if self.operator.click_img(RRIMG.ASSISTANCE_REWARD):
                     self.operator.sleep(1)
                     self.operator.press_key("esc", presses=2, interval=1.2)
@@ -362,7 +364,16 @@ class ReceiveRewardsTask(BaseTask):
     def on_completed(self) -> None:
         on_complete = self.settings.Notification.onCompleted
         if self.__class__.__name__ in on_complete:
-            self.operator.press_key("b")  # 打开背包
-            self.operator.wait_ocr("背包", from_x=0.05, from_y=0.03, to_x=0.1, to_y=0.08, interval=0.5)
-            self.send_notification(f"任务 {self.__class__.__name__} 执行完成。", "success")
-            self.operator.press_key('esc')
+            image = None
+            if hasattr(self.operator, "do_while"):
+                self.operator.do_while(
+                    lambda: self.operator.press_key("b"),
+                    lambda: self.operator.wait_ocr("背包", from_x=0.05, from_y=0.03,
+                                                   to_x=0.1, to_y=0.08, interval=0.5,
+                                                   timeout=5) is None,
+                    interval=1,
+                    max_iterations=5,
+                )
+                image = self.operator.screenshot()
+                self.operator.press_key('esc')
+            self.send_notification(f"任务 {self.__class__.__name__} 执行完成。", "success", image)

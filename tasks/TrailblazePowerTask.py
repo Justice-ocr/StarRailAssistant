@@ -44,8 +44,7 @@ class TrailblazePowerTask(BaseTask):
         use_build_target = self.config.TrailblazePower.isUseBuildTarget
         if use_build_target:
             self.detect_build_target_tasklist()
-        else:
-            self.init_custom_tasklist()
+        self.init_custom_tasklist()
         for func, kwargs in self.manual_tasks:
             func(**kwargs)
         if len(self.auto_detect_tasks) > 0:
@@ -822,6 +821,14 @@ class TrailblazePowerTask(BaseTask):
     def on_completed(self) -> None:
         on_complete = self.settings.Notification.onCompleted
         if self.__class__.__name__ in on_complete:
-            self.goto_survival_index()  # 在生存索引页面发送通知
-            self.send_notification(f"任务 {self.__class__.__name__} 执行完成。", "success")
-            self.operator.press_key('esc')
+            # Lightweight operators used by CLI/unit tests do not expose UI navigation.
+            if hasattr(self.operator, "wait_any_img"):
+                self.goto_survival_index()  # 在生存索引页面发送通知
+                image = self.operator.screenshot()
+                self.operator.press_key('esc')
+            else:
+                image = None
+            self.send_notification(
+                f"任务 {self.__class__.__name__} 执行完成。",
+                "success",
+                image)

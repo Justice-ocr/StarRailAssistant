@@ -1,13 +1,14 @@
 import argparse
-import dataclasses
+from cmd2.parsing import Statement
 
 import cmd2
-from cmd2.parsing import Statement
 from loguru import logger
 from rich.text import Text
 
+from SRACore.extension import ExtensionConfigManager, ExtensionRunner, load_extensions
 from SRACore.localization import Resource
 from SRACore.models.app_settings import AppSettings
+from SRACore.operators.factory import OperatorFactory, OperatorType
 from SRACore.runtime.event_listener import KeyboardListener
 from SRACore.runtime.trigger_manager import TriggerManager
 from SRACore.service.setting_service import SettingsService
@@ -37,8 +38,14 @@ class SRACli(cmd2.Cmd):
                 delattr(cmd2.Cmd, f"do_{cmd_name}")
         # 初始化任务管理器
         self.task_manager = TaskManager(settings_service)
-        # 初始化触发器管理器
+        # Keep Justice fork's legacy trigger controls alongside the upstream Extension system.
         self.trigger_manager = TriggerManager(settings_service.settings)
+
+        # 初始化扩展系统：动态导入扩展模块并创建运行器
+        load_extensions()
+        self.extension_config_manager = ExtensionConfigManager()
+        self.extension_runner = ExtensionRunner(
+            self.extension_config_manager, settings_service)
 
         # 初始化键盘监听器
         stop_hotkey = settings_service.settings.General.hotkeyStop.lower() or 'f9'
@@ -115,9 +122,8 @@ class SRACli(cmd2.Cmd):
     def _task_stop(self, _) -> None:
         if self.task_manager.is_thread_running():
             self.task_manager.stop_thread()
-            self.poutput(Resource.cli_task_stopped)
         else:
-            self.poutput(Resource.cli_task_notRunning)
+            logger.info(Resource.cli_task_notRunning)
 
     @staticmethod
     def _build_task_status_parser() -> cmd2.Cmd2ArgumentParser:
@@ -128,17 +134,20 @@ class SRACli(cmd2.Cmd):
 
     @cmd2.as_subcommand_to("task", "status", _build_task_status_parser, help="Show current task status")
     def _task_status(self, args: argparse.Namespace) -> None:
-        import json
+        import dataclasses, json
         info = self.task_manager.info
         if args.json:
-            self.poutput(json.dumps(dataclasses.asdict(info)))
+            self.poutput(json.dumps(dataclasses.asdict(info), ensure_ascii=False))
         else:
-            self.poutput(f"Session ID: {info.sessionId}")
+            self.poutput(f"Session ID: {info.session_id}")
             self.poutput(f"PID: {info.pid}")
             self.poutput(f"Mode: {info.mode}")
-            self.poutput(f"Configs: {', '.join(info.configs) if info.configs else 'N/A'}")
-            self.poutput(f"Task: {info.task}")
             self.poutput(f"Status: {info.status}")
+            self.poutput(f"Unit: {info.unit}")
+            self.poutput(f"Configs: {', '.join(info.configs) if info.configs else 'N/A'}")
+            self.poutput(f"Progress: {info.progress[0]}/{info.progress[1]}")
+            if info.error:
+                self.poutput(f"Error: {info.error}")
 
     @staticmethod
     def _build_run_parser() -> cmd2.Cmd2ArgumentParser:
@@ -152,7 +161,7 @@ class SRACli(cmd2.Cmd):
         """Run specified tasks, will block current command line until tasks complete"""
         self.poutput(Resource.cli_run_started)
         try:
-            self.task_manager.run(*[self._clean_command_name(name) for name in args.config])
+            self.task_manager.run_and_wait(*[self._clean_command_name(name) for name in args.config])
         except KeyboardInterrupt:
             self.task_manager.request_stop()
 
@@ -171,122 +180,298 @@ class SRACli(cmd2.Cmd):
         try:
             task_name = self._clean_command_name(args.task)
             config_name = self._clean_command_name(args.config) if args.config else None
-            self.task_manager.run_task(task_name, config_name)
+            self.task_manager.run_task_and_wait(task_name, config_name)
         except KeyboardInterrupt:
             self.task_manager.request_stop()
 
     # endregion
 
-    # region 触发器管理
+    def do_trigger(self, arg: str) -> None:
+        """Manage legacy Justice triggers: run, stop, enable, disable, or set."""
+        parts = arg.split()
+        if not parts:
+            self.poutput("usage: trigger <run|stop|enable|disable|set> ...")
+            return
+        command = parts[0].lower()
+        if command == "run":
+            if not self.trigger_manager.has_enabled_triggers():
+                self.poutput(Resource.cli_trigger_noEnabledTriggers)
+            else:
+                self.trigger_manager.start_thread()
+                self.poutput(Resource.cli_trigger_started)
+            return
+        if command == "stop":
+            self.trigger_manager.stop_thread()
+            self.poutput(Resource.cli_trigger_stopped)
+            return
+        if command in {"enable", "disable"} and len(parts) >= 2:
+            name = parts[1].lower()
+            for trigger in self.trigger_manager.triggers:
+                if trigger.__class__.__name__.lower() == name:
+                    trigger.set_enable(command == "enable")
+                    self.trigger_manager.ensure_running() if command == "enable" else self.trigger_manager.stop_if_idle()
+                    self.poutput(Resource.cli_trigger_enabled(parts[1]) if command == "enable" else Resource.cli_trigger_disabled(parts[1]))
+                    return
+            self.poutput(Resource.cli_trigger_notFound(parts[1]))
+            return
+        if command == "set" and len(parts) >= 4:
+            name, attr, value = parts[1:4]
+            value_type = "str"
+            if len(parts) >= 6 and parts[4] == "--type":
+                value_type = parts[5]
+            for trigger in self.trigger_manager.triggers:
+                if trigger.__class__.__name__.lower() != name.lower():
+                    continue
+                if not hasattr(trigger, attr):
+                    self.poutput(Resource.cli_trigger_attrNotFound(attr, name))
+                    return
+                try:
+                    converted = {"int": int, "float": float, "str": str, "bool": lambda x: x.lower() in {"true", "1", "yes"}}[value_type](value)
+                except (KeyError, ValueError):
+                    self.poutput(Resource.cli_trigger_unknownType(value_type))
+                    return
+                setattr(trigger, attr, converted)
+                self.poutput(Resource.cli_trigger_attrSet(name, attr, value))
+                return
+            self.poutput(Resource.cli_trigger_notFound(name))
+            return
+        self.poutput("usage: trigger <run|stop|enable|disable|set> ...")
+
+    # region 扩展管理
 
     @staticmethod
-    def _build_trigger_parser() -> cmd2.Cmd2ArgumentParser:
-        trigger_description = Text.assemble(Resource.trigger_description)
-        trigger_parser = cmd2.Cmd2ArgumentParser(description=trigger_description)
-        trigger_parser.add_subparsers(metavar="SUBCOMMAND", required=True)
-        return trigger_parser
+    def _build_extension_parser() -> cmd2.Cmd2ArgumentParser:
+        extension_parser = cmd2.Cmd2ArgumentParser(description="扩展管理：查看、运行已注册的扩展")
+        extension_parser.add_subparsers(metavar="SUBCOMMAND", required=True)
+        return extension_parser
 
-    @cmd2.with_argparser(_build_trigger_parser, preserve_quotes=True)
-    def do_trigger(self, args: argparse.Namespace) -> None:
+    @cmd2.with_argparser(_build_extension_parser)
+    def do_extension(self, args: argparse.Namespace) -> None:
         args.cmd2_subcommand_func(args)
 
     @staticmethod
-    def _build_trigger_run_parser() -> cmd2.Cmd2ArgumentParser:
-        trigger_run_description = Text.assemble(Resource.trigger_run_description)
-        return cmd2.Cmd2ArgumentParser(description=trigger_run_description)
+    def _build_extension_list_parser() -> cmd2.Cmd2ArgumentParser:
+        parser = cmd2.Cmd2ArgumentParser(description="列出所有已注册的扩展")
+        parser.add_argument('--json', action='store_true', help="以单行 JSON 格式输出")
+        return parser
 
-    @cmd2.as_subcommand_to("trigger", "run", _build_trigger_run_parser, help=Resource.trigger_run_description)
-    def _trigger_run(self, _) -> None:
-        if self.trigger_manager.is_thread_running():
-            self.poutput(Resource.cli_trigger_alreadyRunning)
+    @cmd2.as_subcommand_to("extension", "list", _build_extension_list_parser, help="列出所有已注册的扩展")
+    def _extension_list(self, args: argparse.Namespace) -> None:
+        import json
+
+        from SRACore.extension import extension_registry
+
+        ids = extension_registry.get_ids()
+        if not ids:
+            self.poutput("没有已注册的扩展")
             return
-        if not self.trigger_manager.has_enabled_triggers():
-            self.poutput(Resource.cli_trigger_noEnabledTriggers)
-            return
-        self.trigger_manager.start_thread()
-        self.poutput(Resource.cli_trigger_started)
-
-    @staticmethod
-    def _build_trigger_stop_parser() -> cmd2.Cmd2ArgumentParser:
-        trigger_stop_description = Text.assemble(Resource.trigger_stop_description)
-        return cmd2.Cmd2ArgumentParser(description=trigger_stop_description)
-
-    @cmd2.as_subcommand_to("trigger", "stop", _build_trigger_stop_parser, help=Resource.trigger_stop_description)
-    def _trigger_stop(self, _) -> None:
-        if self.trigger_manager.is_thread_running():
-            self.trigger_manager.stop_thread()
-            self.poutput(Resource.cli_trigger_stopped)
+        if args.json:
+            data = []
+            for ext_id in ids:
+                entry = extension_registry.get(ext_id)
+                data.append({
+                    "id": ext_id, "name": entry.name, "description": entry.description,
+                    "extension_class": entry.extension_cls.__name__,
+                    "config_class": entry.config_cls.__name__ if entry.config_cls else "",
+                })
+            self.poutput(json.dumps(data))
         else:
-            self.poutput(Resource.cli_trigger_notRunning)
+            self.poutput(f"已注册 {len(ids)} 个扩展：")
+            for ext_id in ids:
+                entry = extension_registry.get(ext_id)
+                desc = f"  - {entry.description}" if entry.description else ""
+                config_str = f" (config: {entry.config_cls.__name__})" if entry.config_cls else ""
+                self.poutput(f"  {ext_id} ({entry.name})  ->  {entry.extension_cls.__name__}"
+                             f"{config_str}{desc}")
 
     @staticmethod
-    def _build_trigger_enable_parser() -> cmd2.Cmd2ArgumentParser:
-        trigger_enable_description = Text.assemble(Resource.trigger_enable_description)
-        trigger_enable_parser = cmd2.Cmd2ArgumentParser(description=trigger_enable_description)
-        trigger_enable_parser.add_argument('name', help=Resource.trigger_enable_nameHelp)
-        return trigger_enable_parser
+    def _build_extension_run_parser() -> cmd2.Cmd2ArgumentParser:
+        parser = cmd2.Cmd2ArgumentParser(description="按扩展类型自动分发：非后台扩展走共享线程，后台扩展走专用线程")
+        parser.add_argument('name', help="扩展标识（可通过 extension list 查看）")
+        parser.add_argument('--config', help="扩展配置文件名（不带 .json 后缀），不指定则不加载文件配置")
+        return parser
 
-    @cmd2.as_subcommand_to("trigger", "enable", _build_trigger_enable_parser,
-                           help=Resource.trigger_enable_description)
-    def _trigger_enable(self, args: argparse.Namespace) -> None:
-        for trigger in self.trigger_manager.triggers:
-            if trigger.__class__.__name__.lower() == args.name.lower():
-                trigger.set_enable(True)
-                logger.info(Resource.cli_trigger_enabled(args.name))
-                self.trigger_manager.ensure_running()
-                return
-        self.poutput(Resource.cli_trigger_notFound(args.name))
+    @cmd2.as_subcommand_to("extension", "run", _build_extension_run_parser, help="运行指定的扩展")
+    def _extension_run(self, args: argparse.Namespace) -> None:
+        from SRACore.extension import extension_registry
 
-    @staticmethod
-    def _build_trigger_disable_parser() -> cmd2.Cmd2ArgumentParser:
-        trigger_disable_description = Text.assemble(Resource.trigger_disable_description)
-        trigger_disable_parser = cmd2.Cmd2ArgumentParser(description=trigger_disable_description)
-        trigger_disable_parser.add_argument('name', help=Resource.trigger_disable_nameHelp)
-        return trigger_disable_parser
+        if not extension_registry.has_id(args.name):
+            self.poutput(f"扩展 '{args.name}' 不存在，使用 'extension list' 查看可用扩展")
+            return
+        if args.config:
+            self.extension_config_manager.load(args.config)
 
-    @cmd2.as_subcommand_to("trigger", "disable", _build_trigger_disable_parser,
-                           help=Resource.trigger_disable_description)
-    def _trigger_disable(self, args: argparse.Namespace) -> None:
-        for trigger in self.trigger_manager.triggers:
-            if trigger.__class__.__name__.lower() == args.name.lower():
-                trigger.set_enable(False)
-                logger.info(Resource.cli_trigger_disabled(args.name))
-                self.trigger_manager.stop_if_idle()
-                return
-        self.poutput(Resource.cli_trigger_notFound(args.name))
+        if extension_registry.is_background(args.name):
+            ok = self.extension_runner.start_extension(args.name)
+            if ok:
+                self.poutput(f"已启动后台扩展 '{args.name}'")
+            else:
+                self.poutput(f"无法启动后台扩展 '{args.name}'")
+            return
+
+        result = self.extension_runner.run_in_thread(args.name)
+        if result:
+            self.poutput(f"已启动扩展 '{args.name}'")
+        else:
+            self.poutput(f"无法启动扩展 '{args.name}'")
 
     @staticmethod
-    def _build_trigger_set_parser() -> cmd2.Cmd2ArgumentParser:
-        trigger_set_description = Text.assemble(Resource.trigger_set_description)
-        trigger_set_parser = cmd2.Cmd2ArgumentParser(description=trigger_set_description)
-        trigger_set_parser.add_argument('name', help=Resource.trigger_set_nameHelp)
-        trigger_set_parser.add_argument('attr', help=Resource.trigger_set_attrHelp)
-        trigger_set_parser.add_argument('value', help=Resource.trigger_set_valueHelp)
-        trigger_set_parser.add_argument('--type', choices=['int', 'float', 'str', 'bool'],
-                                        default='str', help=Resource.trigger_set_typeHelp)
-        return trigger_set_parser
+    def _build_extension_schema_parser() -> cmd2.Cmd2ArgumentParser:
+        parser = cmd2.Cmd2ArgumentParser(description="显示扩展的配置 Schema 详情")
+        parser.add_argument('name', help="扩展键名")
+        parser.add_argument('--json', action='store_true', help="以 JSON 格式输出")
+        return parser
 
-    @cmd2.as_subcommand_to("trigger", "set", _build_trigger_set_parser, help=Resource.trigger_set_description)
-    def _trigger_set(self, args: argparse.Namespace) -> None:
-        for trigger in self.trigger_manager.triggers:
-            if trigger.__class__.__name__.lower() == args.name.lower():
-                if not hasattr(trigger, args.attr):
-                    self.poutput(Resource.cli_trigger_attrNotFound(args.attr, args.name))
-                    return
-                if args.type == 'int':
-                    setattr(trigger, args.attr, int(args.value))
-                elif args.type == 'float':
-                    setattr(trigger, args.attr, float(args.value))
-                elif args.type == 'str':
-                    setattr(trigger, args.attr, args.value)
-                elif args.type == 'bool':
-                    setattr(trigger, args.attr, args.value.lower() in ['true', '1', 'yes'])
-                else:
-                    self.poutput(Resource.cli_trigger_unknownType(args.type))
-                    return
-                logger.info(Resource.cli_trigger_attrSet(args.name, args.attr, args.value))
+    @cmd2.as_subcommand_to("extension", "schema", _build_extension_schema_parser, help="显示扩展的配置 Schema 详情")
+    def _extension_info(self, args: argparse.Namespace) -> None:
+        import json
+
+        from SRACore.extension import extension_registry
+
+        if not extension_registry.has_id(args.name):
+            self.poutput(f"扩展 '{args.name}' 不存在")
+            return
+
+        entry = extension_registry.get(args.name)
+        schema = extension_registry.get_schema(args.name)
+        if args.json:
+            self.poutput(json.dumps(schema))
+        else:
+            self.poutput(f"扩展: {args.name} ({entry.name})")
+            self.poutput(f"配置类: {entry.config_cls.__name__ if entry.config_cls else 'None'}")
+            self.poutput(f"描述: {entry.description}")
+            self.poutput(f"扩展类: {entry.extension_cls.__name__}")
+            self.poutput("配置 Schema:")
+            self.poutput(json.dumps(schema, ensure_ascii=False, indent=2))
+
+    @staticmethod
+    def _build_extension_reload_parser() -> cmd2.Cmd2ArgumentParser:
+        return cmd2.Cmd2ArgumentParser(description="重新扫描并导入扩展模块")
+
+    @cmd2.as_subcommand_to("extension", "reload", _build_extension_reload_parser, help="重新扫描并导入扩展模块")
+    def _extension_reload(self, _: argparse.Namespace) -> None:
+        from SRACore.extension import extension_registry
+
+        before = set(extension_registry.get_ids())
+        load_extensions()
+        after = set(extension_registry.get_ids())
+        added = after - before
+        if added:
+            self.poutput(f"新增扩展: {', '.join(added)}")
+        else:
+            self.poutput("未发现新扩展")
+        self.poutput(f"当前已注册 {len(after)} 个扩展")
+
+    @staticmethod
+    def _build_extension_stop_parser() -> cmd2.Cmd2ArgumentParser:
+        parser = cmd2.Cmd2ArgumentParser(description="停止指定的后台扩展或当前正在运行的单次扩展")
+        parser.add_argument('name', nargs='?', help="扩展标识；若不传则停止当前单次扩展")
+        return parser
+
+    @cmd2.as_subcommand_to("extension", "stop", _build_extension_stop_parser, help="停止指定后台扩展或当前正在运行的单次扩展")
+    def _extension_stop(self, args: argparse.Namespace) -> None:
+        if args.name:
+            from SRACore.extension import extension_registry
+
+            if not extension_registry.has_id(args.name):
+                self.poutput(f"扩展 '{args.name}' 不存在")
                 return
-        self.poutput(Resource.cli_trigger_notFound(args.name))
+            if not extension_registry.is_background(args.name):
+                self.poutput(f"扩展 '{args.name}' 不是后台扩展，不能通过 stop 指定停止")
+                return
+            stopped = self.extension_runner.stop_extension(args.name)
+            self.poutput(f"已停止后台扩展 '{args.name}'" if stopped else f"后台扩展 '{args.name}' 未运行")
+            return
+
+        if not self.extension_runner.is_thread_running():
+            self.poutput("当前没有正在运行的扩展")
+            return
+        self.extension_runner.stop_thread()
+        self.poutput("扩展已停止")
+
+    @staticmethod
+    def _build_extension_status_parser() -> cmd2.Cmd2ArgumentParser:
+        return cmd2.Cmd2ArgumentParser(description="显示扩展运行状态")
+
+    @cmd2.as_subcommand_to("extension", "status", _build_extension_status_parser, help="显示扩展运行状态")
+    def _extension_status(self, _: argparse.Namespace) -> None:
+        info = self.extension_runner.info
+        self.poutput(f"Status: {info.status}")
+        self.poutput(f"Unit: {info.unit}")
+        if info.error:
+            self.poutput(f"Error: {info.error}")
+
+    @staticmethod
+    def _build_extension_config_parser() -> cmd2.Cmd2ArgumentParser:
+        parser = cmd2.Cmd2ArgumentParser(description="扩展配置管理")
+        parser.add_subparsers(metavar="SUBCOMMAND", required=True)
+        return parser
+
+    @staticmethod
+    def _build_extension_config_get_parser() -> cmd2.Cmd2ArgumentParser:
+        parser = cmd2.Cmd2ArgumentParser(description="获取扩展配置")
+        parser.add_argument('name', help="扩展标识")
+        parser.add_argument('--json', action='store_true', help="以 JSON 格式输出")
+        return parser
+
+    @cmd2.as_subcommand_to("extension", "config", _build_extension_config_parser, help="扩展配置管理")
+    def _extension_config(self, args: argparse.Namespace) -> None:
+        args.cmd2_subcommand_func(args)
+
+    @cmd2.as_subcommand_to("extension config", "get", _build_extension_config_get_parser, help="获取扩展配置")
+    def _extension_config_get(self, args: argparse.Namespace) -> None:
+        import json
+
+        from SRACore.extension import extension_registry
+
+        if not extension_registry.has_id(args.name):
+            self.poutput(f"扩展 '{args.name}' 不存在")
+            return
+        config = self.extension_config_manager.get(args.name)
+        if config is None:
+            self.poutput("配置为空")
+            return
+        data = config.model_dump(by_alias=True)
+        if args.json:
+            self.poutput(json.dumps(data, ensure_ascii=False))
+        else:
+            self.poutput(f"扩展 {args.name} 配置:")
+            for key, value in data.items():
+                self.poutput(f"  {key}: {value}")
+
+    @staticmethod
+    def _build_extension_config_set_parser() -> cmd2.Cmd2ArgumentParser:
+        parser = cmd2.Cmd2ArgumentParser(description="设置扩展配置")
+        parser.add_argument('name', help="扩展标识")
+        parser.add_argument('json', help="配置 JSON 字符串")
+        return parser
+
+    @cmd2.as_subcommand_to("extension config", "set", _build_extension_config_set_parser, help="设置扩展配置")
+    def _extension_config_set(self, args: argparse.Namespace) -> None:
+        import json
+
+        from SRACore.extension import extension_registry
+
+        if not extension_registry.has_id(args.name):
+            self.poutput(f"扩展 '{args.name}' 不存在")
+            return
+        try:
+            data = json.loads(args.json)
+        except json.JSONDecodeError as e:
+            self.poutput(f"JSON 格式错误: {e}")
+            return
+        config_cls = extension_registry.get_config_class(args.name)
+        if config_cls is None:
+            self.poutput(f"扩展 '{args.name}' 没有配置")
+            return
+        try:
+            config = config_cls.model_validate(data, by_alias=True)
+        except Exception as e:
+            self.poutput(f"配置验证失败: {e}")
+            return
+        self.extension_config_manager.set(args.name, config)
+        self.extension_config_manager.save()
+        self.poutput(f"扩展 {args.name} 配置已保存")
 
     # endregion
 
@@ -318,7 +503,8 @@ class SRACli(cmd2.Cmd):
             self.poutput("--save or --show is required")
             return
         try:
-            img = self.task_manager.get_operator().screenshot(background=args.background)
+            optype = OperatorType.Browser if self.settings_service.settings.General.isCloudGameEnabled else OperatorType.Local
+            img = OperatorFactory.get_operator(optype, self.settings_service.settings).screenshot(background=args.background)
         except Exception as e:
             self.poutput(f"Failed to take screenshot: {e}")
             return
@@ -341,7 +527,8 @@ class SRACli(cmd2.Cmd):
     def _game_ocr(self, args: argparse.Namespace) -> None:
         import json
         try:
-            operator = self.task_manager.get_operator()
+            optype = OperatorType.Browser if self.settings_service.settings.General.isCloudGameEnabled else OperatorType.Local
+            operator = OperatorFactory.get_operator(optype, self.settings_service.settings)
             region = args.region
             result = operator.ocr(
                 from_x=region[0] if region else None,
