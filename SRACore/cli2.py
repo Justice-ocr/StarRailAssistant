@@ -1,4 +1,8 @@
 import argparse
+import dataclasses
+import json
+from collections.abc import Callable
+from typing import Any
 from cmd2.parsing import Statement
 
 import cmd2
@@ -25,6 +29,7 @@ class SRACli(cmd2.Cmd):
         self.prompt = 'sra> '
         self.default_error = Resource.cli_defaultError
         self.settings_service = settings_service
+        self._use_json = False
 
         # 移除不需要的 settable 选项
         # for attr in ["debug", "timing", "quiet", "feedback_to_output",
@@ -65,9 +70,35 @@ class SRACli(cmd2.Cmd):
         return self._strip_command_bom(super()._read_command_line(prompt))
 
     def onecmd(self, statement: Statement | str, *, add_to_history: bool = True) -> bool:
-        if isinstance(statement, str):
+        if isinstance(statement, str) and not isinstance(statement, Statement):
             statement = self._strip_command_bom(statement)
         return super().onecmd(statement, add_to_history=add_to_history)
+
+    def precmd(self, statement: Statement | str) -> Statement:
+        statement = super().precmd(statement)
+        self._use_json = "--json" in statement.arg_list
+        return statement
+
+    def output(self, success: bool, message: str, data: Any = None,
+               serializer: Callable[[Any], Any] | None = None,
+               formatter: Callable[[Any], str] | None = None) -> None:
+        if self._use_json:
+            response: dict[str, Any] = {"success": success, "message": message}
+            if data is not None:
+                response["data"] = data
+            self.poutput(json.dumps(response, ensure_ascii=False, default=serializer))
+            return
+        self.poutput(message)
+        if data is not None:
+            self.poutput(formatter(data) if formatter else str(data))
+
+    def ok(self, message: str, data: Any = None,
+           serializer: Callable[[Any], Any] | None = None,
+           formatter: Callable[[Any], str] | None = None) -> None:
+        self.output(True, message, data, serializer, formatter)
+
+    def err(self, message: str) -> None:
+        self.output(False, message)
 
     # region 任务管理
     @staticmethod
@@ -134,10 +165,9 @@ class SRACli(cmd2.Cmd):
 
     @cmd2.as_subcommand_to("task", "status", _build_task_status_parser, help="Show current task status")
     def _task_status(self, args: argparse.Namespace) -> None:
-        import dataclasses, json
         info = self.task_manager.info
         if args.json:
-            self.poutput(json.dumps(dataclasses.asdict(info), ensure_ascii=False))
+            self.ok("Task status", dataclasses.asdict(info))
         else:
             self.poutput(f"Session ID: {info.session_id}")
             self.poutput(f"PID: {info.pid}")
@@ -148,6 +178,41 @@ class SRACli(cmd2.Cmd):
             self.poutput(f"Progress: {info.progress[0]}/{info.progress[1]}")
             if info.error:
                 self.poutput(f"Error: {info.error}")
+
+    @staticmethod
+    def _build_task_list_parser() -> cmd2.Cmd2ArgumentParser:
+        parser = cmd2.Cmd2ArgumentParser(description="List all registered tasks")
+        parser.add_argument('--json', action='store_true', help="Output in JSON format")
+        return parser
+
+    @cmd2.as_subcommand_to("task", "list", _build_task_list_parser, help="List all registered tasks")
+    def _task_list(self, args: argparse.Namespace) -> None:
+        import json
+
+        from SRACore.task import get_task_classes, task_registry
+
+        # Loading task modules here keeps the command useful before any task has run.
+        get_task_classes()
+        entries = sorted(task_registry.get_entries(), key=lambda entry: (entry.order, entry.name))
+        items = [
+            {
+                "id": entry.name,
+                "order": entry.order,
+                "class": entry.task_cls.__name__,
+                "doc": (entry.task_cls.__doc__ or "").strip() or None,
+            }
+            for entry in entries
+        ]
+        if args.json:
+            self.ok(f"已注册 {len(items)} 个任务", items)
+            return
+        if not items:
+            self.poutput("没有已注册的任务")
+            return
+        self.poutput(f"已注册 {len(items)} 个任务：")
+        for item in items:
+            self.poutput(f"  {item['order']}: {item['id']} ({item['class']})"
+                         f"  {item['doc'] or 'No description'}")
 
     @staticmethod
     def _build_run_parser() -> cmd2.Cmd2ArgumentParser:
@@ -257,32 +322,29 @@ class SRACli(cmd2.Cmd):
 
     @cmd2.as_subcommand_to("extension", "list", _build_extension_list_parser, help="列出所有已注册的扩展")
     def _extension_list(self, args: argparse.Namespace) -> None:
-        import json
-
         from SRACore.extension import extension_registry
 
         ids = extension_registry.get_ids()
         if not ids:
-            self.poutput("没有已注册的扩展")
+            self.err("没有已注册的扩展")
             return
+        data = []
+        for ext_id in ids:
+            entry = extension_registry.get(ext_id)
+            data.append({
+                "id": ext_id, "name": entry.name, "description": entry.description,
+                "extension_class": entry.extension_cls.__name__,
+                "config_class": entry.config_cls.__name__ if entry.config_cls else "",
+            })
         if args.json:
-            data = []
-            for ext_id in ids:
-                entry = extension_registry.get(ext_id)
-                data.append({
-                    "id": ext_id, "name": entry.name, "description": entry.description,
-                    "extension_class": entry.extension_cls.__name__,
-                    "config_class": entry.config_cls.__name__ if entry.config_cls else "",
-                })
-            self.poutput(json.dumps(data))
-        else:
-            self.poutput(f"已注册 {len(ids)} 个扩展：")
-            for ext_id in ids:
-                entry = extension_registry.get(ext_id)
-                desc = f"  - {entry.description}" if entry.description else ""
-                config_str = f" (config: {entry.config_cls.__name__})" if entry.config_cls else ""
-                self.poutput(f"  {ext_id} ({entry.name})  ->  {entry.extension_cls.__name__}"
-                             f"{config_str}{desc}")
+            self.ok(f"已注册 {len(data)} 个扩展", data)
+            return
+        self.poutput(f"已注册 {len(ids)} 个扩展：")
+        for item in data:
+            desc = f"  - {item['description']}" if item["description"] else ""
+            config_str = f" (config: {item['config_class']})" if item["config_class"] else ""
+            self.poutput(f"  {item['id']} ({item['name']})  ->  {item['extension_class']}"
+                         f"{config_str}{desc}")
 
     @staticmethod
     def _build_extension_run_parser() -> cmd2.Cmd2ArgumentParser:
@@ -329,13 +391,13 @@ class SRACli(cmd2.Cmd):
         from SRACore.extension import extension_registry
 
         if not extension_registry.has_id(args.name):
-            self.poutput(f"扩展 '{args.name}' 不存在")
+            self.err(f"扩展 '{args.name}' 不存在")
             return
 
         entry = extension_registry.get(args.name)
         schema = extension_registry.get_schema(args.name)
         if args.json:
-            self.poutput(json.dumps(schema))
+            self.ok(f"扩展 {args.name} 配置模式", schema)
         else:
             self.poutput(f"扩展: {args.name} ({entry.name})")
             self.poutput(f"配置类: {entry.config_cls.__name__ if entry.config_cls else 'None'}")
@@ -425,15 +487,15 @@ class SRACli(cmd2.Cmd):
         from SRACore.extension import extension_registry
 
         if not extension_registry.has_id(args.name):
-            self.poutput(f"扩展 '{args.name}' 不存在")
+            self.err(f"扩展 '{args.name}' 不存在")
             return
         config = self.extension_config_manager.get(args.name)
         if config is None:
-            self.poutput("配置为空")
+            self.ok("配置为空")
             return
         data = config.model_dump(by_alias=True)
         if args.json:
-            self.poutput(json.dumps(data, ensure_ascii=False))
+            self.ok(f"扩展 {args.name} 配置", data)
         else:
             self.poutput(f"扩展 {args.name} 配置:")
             for key, value in data.items():
