@@ -31,6 +31,7 @@ public partial class SettingsPageViewModel : PageViewModel
 
     private readonly SettingsService _settingsService;
     private readonly UpdateService _updateService;
+    private readonly ReportService _reportService;
     /// <inheritdoc />
     public SettingsPageViewModel(
         SettingsService settingsService,
@@ -39,7 +40,8 @@ public partial class SettingsPageViewModel : PageViewModel
         CommonModel commonModel,
         RegistryService registryService,
         IBackendService backendService,
-        OverlayService overlayService) : base(PageName.Setting,
+        OverlayService overlayService,
+        ReportService reportService) : base(PageName.Setting,
         "\uE272")
     {
         _settingsService = settingsService;
@@ -49,6 +51,7 @@ public partial class SettingsPageViewModel : PageViewModel
         _commonModel = commonModel;
         _backendService = backendService;
         _overlayService = overlayService;
+        _reportService = reportService;
         // 任务通用设置中的 启动/停止 快捷键（非游戏内快捷键分组）
         StartStopKey = new CustomizableKey
         {
@@ -117,6 +120,7 @@ public partial class SettingsPageViewModel : PageViewModel
     public AdvancedSettings AdvancedSettings => Settings.Advanced;
     public Cache Cache => _cacheService.Cache;
     public static string VersionText => AppSettings.Version;
+    public string DeviceId => _reportService.GetDeviceId();
     public string WebUiRemoteUrl => "http://127.0.0.1:5074/";
     public string WebUiRemoteStatus => Settings.Advanced.IsWebUiRemoteConnectionEnabled ? "当前状态：已开启" : "当前状态：未开启";
     public string WebUiRemoteButtonText => Settings.Advanced.IsWebUiRemoteConnectionEnabled ? "关闭远程连接" : "开启远程连接";

@@ -86,9 +86,9 @@ class BaseTask(Executable, ABC):
             self.send_notification(f"任务 {self._task_display_name()} 执行完成。", "success")
 
     def on_failed(self) -> None:
-        if self.operator.width != 1920 or self.operator.height != 1080:
+        if self.operator.window_context.width != 1920 or self.operator.window_context.height != 1080:
             logger.warning(
-                f"可能的失败原因：游戏分辨率不符合要求：1920x1080，当前：{self.operator.width}x{self.operator.height}。")
+                f"可能的失败原因：游戏分辨率不符合要求：1920x1080，当前：{self.operator.window_context.width}x{self.operator.window_context.height}。")
         image = None
         try:
             image = self.operator.screenshot()
@@ -141,6 +141,9 @@ class TaskRegistry:
             if entry.task_cls.__name__.lower() == task_id.lower():
                 return entry
         raise KeyError(f"Task '{task_id}' does not exist")
+
+    def get_entries(self) -> list[TaskEntry]:
+        return self._entries
 
     def get_task_class(self, task_id: str) -> type[BaseTask]:
         return self.get(task_id).task_cls

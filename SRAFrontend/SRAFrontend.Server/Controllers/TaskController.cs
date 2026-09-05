@@ -108,19 +108,7 @@ public class TaskController(
     public async Task<IActionResult> GetStatus()
     {
         var runtimeStatus = runtimeTaskService.GetStatus();
-        var backendJson = await backendService.GetTaskStatusAsync();
-        JsonElement? backendStatus = null;
-        if (!string.IsNullOrWhiteSpace(backendJson))
-        {
-            try
-            {
-                backendStatus = JsonDocument.Parse(backendJson).RootElement.Clone();
-            }
-            catch (JsonException ex)
-            {
-                logger.LogWarning(ex, "Failed to parse backend task status JSON");
-            }
-        }
+        var backendResponse = await backendService.GetTaskStatusAsync();
 
         return Ok(new
         {
@@ -138,7 +126,7 @@ public class TaskController(
             detail = runtimeStatus.Detail,
             startedAt = runtimeStatus.StartedAt,
             lastHeartbeat = runtimeStatus.LastHeartbeat,
-            backend = backendStatus
+            backend = backendResponse
         });
     }
 

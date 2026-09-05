@@ -1,5 +1,3 @@
-import tomllib
-
 from SRACore.task import BaseTask, task
 from SRACore.util.errors import ErrorCode, SRAError
 from SRACore.util.logger import logger
@@ -8,6 +6,10 @@ from tasks.img import DUIMG, IMG
 
 @task(order=3)
 class CosmicStrifeTask(BaseTask):
+    def __post_init__(self):
+        self.notify = True
+
+    """旷宇纷争任务"""
     def run(self):
         """主任务执行函数"""
         if self.config.CosmicStrife.isDivergentUniverseEnabled:
@@ -42,7 +44,7 @@ class CosmicStrifeTask(BaseTask):
             self.notify = False  # 刷开局时关闭任务通知
             logger.info("执行任务：旷宇纷争-货币战争 刷开局")
             from tasks.currency_wars import RerollStart
-            rs_task = RerollStart(operator=self.operator, runtimes=runtimes, config = self.currency_wars_config)
+            rs_task = RerollStart(operator=self.operator, runtimes=runtimes)
             # 刷开局难度选择：和标准模式使用同一个难度配置项
             rs_task.set_difficulty(difficulty)
             rs_task.load_strategy(strategy)

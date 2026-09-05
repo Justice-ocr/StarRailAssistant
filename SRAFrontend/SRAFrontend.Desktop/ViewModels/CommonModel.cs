@@ -24,7 +24,7 @@ public class CommonModel(
     CacheService cacheService,
     UpdateService updateService,
     IBackendService backendService,
-    AnnouncementService announcementService,
+    AnnService annService,
     WebUiAutostartService webUiAutostartService,
     ILogger<CommonModel> logger,
     ISukiToastManager toastManager)
@@ -32,38 +32,25 @@ public class CommonModel(
     // 常量定义（避免魔法值）
     private const int ToastDisplayDuration = 5; // Toast 显示时长（秒）
     
-    private AnnouncementList? _announcementList;
-
     public void ShowAnnouncementBoard()
     {
-        if (_announcementList is null)
-        {
-            ShowWarningToast("公告获取失败", "当前没有可显示的公告");
-            return;
-        }
         SukiMessageBox.ShowDialog(new SukiMessageBoxHost
         {
-            Header = "公告栏",
-            Content = new AnnouncementBoardViewModel
+            Header = "公告",
+            Content = new AnnBoardViewModel
             {
-                Announcements = _announcementList.Announcements
+                Announcements = annService.CachedAnnouncements?.Announcements
             }
         });
-        cacheService.Cache.LastViewAnnouncementId = _announcementList.Id;
     }
     
     public async Task CheckAnnouncementAsync()
     {
-        _announcementList = await announcementService.GetAnnouncementsAsync();
-        if (_announcementList == null || _announcementList.Announcements.Count == 0)
+        if (await annService.HasNewAnnouncementsAsync(cacheService.Cache.LastViewAnnouncementId))
         {
-            logger.LogInformation("No announcements available");
-            return;
-        }
-
-        // 检查是否有新公告, 自动弹出公告栏
-        if (cacheService.Cache.LastViewAnnouncementId != _announcementList.Id)
             ShowAnnouncementBoard();
+            cacheService.Cache.LastViewAnnouncementId = annService.LatestAnnouncementId;
+        }
     }
 
     public async Task CheckForUpdatesAsync()

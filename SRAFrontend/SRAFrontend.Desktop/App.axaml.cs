@@ -40,7 +40,6 @@ public class App : Application
         {
             // Avoid duplicate validations from both Avalonia and the CommunityToolkit. 
             // More info: https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins
-            DisableAvaloniaDataAnnotationValidation();
             desktop.MainWindow = serviceProvider.GetRequiredService<MainWindow>();
             desktop.MainWindow.DataContext = serviceProvider.GetRequiredService<MainWindowViewModel>();
             desktop.MainWindow.Closed += (_, _) => serviceProvider.GetRequiredService<OverlayService>().CloseOverlay();
@@ -77,7 +76,7 @@ public class App : Application
         services.AddTransient<PageViewModel, ConsolePageViewModel>();
         services.AddTransient<PageViewModel, SettingsPageViewModel>();
         services.AddTransient<UpdateService>();
-        services.AddTransient<AnnouncementService>();
+        services.AddTransient<AnnService>();
         services.AddTransient<ActivityService>();
         services.AddTransient<CommonModel>();
         services.AddSingleton<WebUiAutostartService>();
@@ -128,19 +127,5 @@ public class App : Application
             Log.Fatal(args.ExceptionObject as Exception, "Unhandled exception occurred");
             Log.CloseAndFlush();
         };
-    }
-    
-
-    private void DisableAvaloniaDataAnnotationValidation()
-    {
-        // Get an array of plugins to remove
-        var dataValidationPluginsToRemove =
-            BindingPlugins.DataValidators.OfType<DataAnnotationsValidationPlugin>().ToArray();
-
-        // remove each entry found
-        foreach (var plugin in dataValidationPluginsToRemove)
-        {
-            BindingPlugins.DataValidators.Remove(plugin);
-        }
     }
 }

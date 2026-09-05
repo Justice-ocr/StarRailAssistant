@@ -177,9 +177,11 @@ public abstract class LocalBackendService(ILogger<LocalBackendService> logger)
         return SendInputAsync(string.IsNullOrEmpty(configName) ? "task run" : $"task run {configName}");
     }
 
-    public Task<bool> TaskSingleAsync(string taskName)
+    public Task<bool> TaskSingleAsync(string taskName, string? configName)
     {
-        return SendInputAsync($"task single {taskName}");
+        return SendInputAsync(string.IsNullOrEmpty(configName) 
+            ? $"task single {taskName}"
+            : $"task single {taskName} --config {configName}");
     }
 
     public Task<bool> TaskStopAsync()
@@ -187,91 +189,68 @@ public abstract class LocalBackendService(ILogger<LocalBackendService> logger)
         return SendInputAsync("task stop");
     }
 
-    public async Task<string> GetTaskStatusAsync()
+    public Task<string?> TaskListAsync()
     {
-        return await SendCommandAndWaitOutputAsync("task status --json") ?? string.Empty;
+        return SendInputAndWaitOutputAsync("task list --json");
     }
 
-    public async Task<List<Strategy>> GetStrategiesAsync()
+    public async Task<R> GetTaskStatusAsync()
     {
-        var json = await SendCommandAndWaitOutputAsync("strategy list --json");
-        if (json == null) return [];
-        try
-        {
-            return JsonSerializer.Deserialize<List<Strategy>>(json) ?? [];
-        }
-        catch (JsonException ex)
-        {
-            logger.LogError(ex, "Failed to parse strategies JSON");
-            return [];
-        }
+        return await SendInputAndWaitObjectAsync("task status --json") ?? new R(false, "No response from backend");
+    }
+
+    public async Task<Strategy[]> GetStrategiesAsync()
+    {
+        return await SendInputAndWaitObjectAsync<Strategy[]>("strategy list --json") ?? [];
     }
 
     public async Task<TpTask[]> GetTpConfigAsync()
     {
-        var json = await SendCommandAndWaitOutputAsync("tpconfig --json");
-        if (json == null) return [];
-        try
-        {
-            var tpConfigDict = JsonSerializer.Deserialize<Dictionary<string, TpTask>>(json) ?? [];
-            return [.. tpConfigDict.Values];
-        }
-        catch (JsonException ex)
-        {
-            logger.LogError(ex, "Failed to parse TP config JSON");
-            return [];
-        }
+        var res = await SendInputAndWaitObjectAsync<Dictionary<string, TpTask>>("tpconfig --json");
+        return res is null ? [] : [.. res.Values];
     }
 
-    public async Task<byte[]> GetGameScreenshotBytesAsync()
+    public async Task<(string Message, byte[])> GetGameScreenshotBytesAsync()
     {
         var screenshotPath = Path.Combine(WorkingDirectory, "screenshot.png");
-        var result = await SendCommandAndWaitOutputAsync($"game screenshot --background --save {screenshotPath}");
-        if (result == null || result.StartsWith("Failed") || !File.Exists(screenshotPath))
+        var param = new
         {
-            logger.LogError("Failed to create screenshot.");
-            return [];
+            save_path = screenshotPath,
+            background = true,
+            resize = new[] { 1280, 720 }
+        };
+        var result = await SendInputAndWaitObjectAsync($"operator call screenshot '{JsonSerializer.Serialize(param)}' --json");
+        switch (result)
+        {
+            case null:
+                logger.LogError("Failed to create screenshot: No response from backend.");
+                return ("No response from backend.", []);
+            case { Success: true }:
+                var screenshotBytes = await File.ReadAllBytesAsync(screenshotPath);
+                return (result.Message, screenshotBytes);
+            default:
+                logger.LogError("Failed to create screenshot.");
+                return (result.Message, []);
         }
-
-        return await File.ReadAllBytesAsync(screenshotPath);
     }
 
-    public async Task<List<ExtensionInfo>> GetExtensionsAsync()
+    public async Task<ExtensionInfo[]> GetExtensionsAsync()
     {
-        var json = await SendCommandAndWaitOutputAsync("extension list --json");
-        if (json == null) return [];
-        try
-        {
-            return JsonSerializer.Deserialize<List<ExtensionInfo>>(json) ?? [];
-        }
-        catch (JsonException ex)
-        {
-            logger.LogError(ex, "Failed to parse extensions JSON");
-            return [];
-        }
+        return await SendInputAndWaitObjectAsync<ExtensionInfo[]>("extension list --json") ?? [];
     }
 
     public async Task<ExtensionSchema?> GetExtensionSchemaAsync(string extensionId)
     {
-        var json = await SendCommandAndWaitOutputAsync($"extension schema {extensionId} --json");
-        if (json == null) return null;
-        try
-        {
-            return JsonSerializer.Deserialize<ExtensionSchema>(json);
-        }
-        catch (JsonException ex)
-        {
-            logger.LogError(ex, "Failed to parse extension schema JSON");
-            return null;
-        }
+        return await SendInputAndWaitObjectAsync<ExtensionSchema>($"extension schema {extensionId} --json");
     }
 
     public async Task<string?> GetExtensionConfigAsync(string extensionId)
     {
-        return await SendCommandAndWaitOutputAsync($"extension config get {extensionId} --json");
+        var obj = await SendInputAndWaitObjectAsync<object>($"extension config get {extensionId} --json");
+        return obj == null ? null : JsonSerializer.Serialize(obj);
     }
 
-    private async Task<string?> SendCommandAndWaitOutputAsync(string command)
+    public async Task<string?> SendInputAndWaitOutputAsync(string command)
     {
         await _commandLock.WaitAsync();
         try
@@ -306,6 +285,44 @@ public abstract class LocalBackendService(ILogger<LocalBackendService> logger)
         }
     }
 
+    public async Task<T?> SendInputAndWaitObjectAsync<T>(string command)
+    {
+        var output = await SendInputAndWaitOutputAsync(command);
+        if (output == null) return default;
+        try
+        {
+            var response = JsonSerializer.Deserialize<R<T>>(output, options: JsonSerializerOptions.Web);
+            if (response is { Success: true })
+                return response.Data;
+        }
+        catch (JsonException ex)
+        {
+            logger.LogError(ex, "Failed to deserialize JSON response for command: {Command}", command);
+        }
+        return default;
+    }
+
+    public async Task<R?> SendInputAndWaitObjectAsync(string command)
+    {
+        var output = await SendInputAndWaitOutputAsync(command);
+        if (output == null) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<R>(output, options: JsonSerializerOptions.Web);
+        }
+        catch (JsonException ex)
+        {
+            logger.LogError(ex, "Failed to deserialize JSON response for command: {Command}", command);
+        }
+        return null;
+    }
+
+    public Task<R?> OperatorCallAsync(string method, object? parameters)
+    {
+        var command = $"operator call {method} '{JsonSerializer.Serialize(parameters)}' --json";
+        return SendInputAndWaitObjectAsync(command);
+    }
+    
     private void OnBackendProcessExited(object? sender, EventArgs e)
     {
         var processId = _backendProcess?.Id ?? -1;
@@ -323,21 +340,22 @@ public abstract class LocalBackendService(ILogger<LocalBackendService> logger)
     {
         if (string.IsNullOrEmpty(args.Data)) return;
 
-        // 更新运行状态
-        if (args.Data.Contains(IBackendService.StartMarker))
-            IsTaskRunning = true;
-        else if (args.Data.Contains(IBackendService.DoneMarker))
-            IsTaskRunning = false;
-
         Outputted?.Invoke(args.Data);
 
+        // 完成等待中的输出请求
         if (_outputTcs?.TrySetResult(args.Data) == true)
-            _outputTcs = null;
+            _outputTcs = null; // 释放引用
     }
 
     private void OnBackendProcessErrorDataReceived(object _, DataReceivedEventArgs args)
     {
         if (string.IsNullOrEmpty(args.Data)) return;
+
+        // 更新运行状态
+        if (args.Data.Contains(IBackendService.StartMarker))
+            IsTaskRunning = true;
+        else if (args.Data.Contains(IBackendService.DoneMarker))
+            IsTaskRunning = false;
 
         Outputted?.Invoke(args.Data);
     }
