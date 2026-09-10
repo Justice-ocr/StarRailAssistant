@@ -610,11 +610,14 @@ public partial class TaskPageViewModel : PageViewModel
     }
 
     [RelayCommand]
-    private void ShowAddTaskControl()
+    private async Task ShowAddTaskControl()
     {
-        SukiMessageBox.ShowDialog(new SukiMessageBoxHost
+        var result = await SukiMessageBox.ShowDialog(new SukiMessageBoxHost
         {
-            Content = new TpAddTaskControl { DataContext = this }
+            Content = new TpAddTaskControl { DataContext = this },
+            ActionButtonsPreset = SukiMessageBoxButtons.ApplyCancel
         });
+        if (result is SukiMessageBoxResult.Apply)
+            AddTaskItem();
     }
 }
