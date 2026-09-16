@@ -161,11 +161,17 @@ public class ConfigService(CacheService cacheService, ILogger<ConfigService> log
     private void UnsubscribePropertyChanged(INotifyPropertyChanged notify) =>
         notify.PropertyChanged -= OnConfigChanged;
 
-    private void SubscribeCollectionChanged(INotifyCollectionChanged collection) =>
+    private void SubscribeCollectionChanged(INotifyCollectionChanged? collection)
+    {
+        if (collection is null) return;
         collection.CollectionChanged += OnConfigCollectionChanged;
+    }
 
-    private void UnsubscribeCollectionChanged(INotifyCollectionChanged collection) =>
+    private void UnsubscribeCollectionChanged(INotifyCollectionChanged? collection)
+    {
+        if (collection is null) return;
         collection.CollectionChanged -= OnConfigCollectionChanged;
+    }
 
     private void OnConfigChanged(object? sender, PropertyChangedEventArgs args) => ScheduleAutoSave();
 
