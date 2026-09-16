@@ -30,7 +30,22 @@
                         Content="&#xE3DE;"
                         ToolTip.Tip="停止后端"
                         Command="{Binding StopConsoleCommand}"/>
-                    <TextBlock Text="如果要反馈问题，请发送日志文件，而不是这个页面的照片或截图"/>
+                    <Button
+                        Height="26"
+                        Classes="Flat Accent"
+                        Padding="8,0"
+                        ToolTip.Tip="将控制台、前端、后端日志打包导出为 ZIP 文件"
+                        Command="{Binding ExportLogsCommand}"
+                        IsEnabled="{Binding !IsExporting}">
+                        <Panel>
+                            <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding !IsExporting}">
+                                <TextBlock Classes="Icon" Text="&#xEAF0;" VerticalAlignment="Center" FontSize="14"/>
+                                <TextBlock Text="导出日志" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Text="导出中..." IsVisible="{Binding IsExporting}" VerticalAlignment="Center"/>
+                        </Panel>
+                    </Button>
+                    <TextBlock Text="如果要反馈问题，请发送日志文件，而不是这个页面的照片或截图" VerticalAlignment="Center"/>
                 </StackPanel>
             </suki:GroupBox.Header>
             <Grid RowDefinitions="Auto,*,Auto">

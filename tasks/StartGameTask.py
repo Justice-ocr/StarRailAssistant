@@ -1,9 +1,22 @@
+import enum
+import typing
+if typing.TYPE_CHECKING:
+    from SRACore.operators.model import Box
+
 from SRACore.operators.factory import OperatorType
 from SRACore.task import BaseTask, task
 from SRACore.util import encryption
 from SRACore.util.logger import logger
 from tasks.img import IMG, SGIMG
 
+class LoginStatus(enum.IntEnum):
+    """登录状态枚举"""
+    UNKNOWN_PAGE = -1
+    LOGIN_PAGE = 0
+    WELCOME_PAGE = 1
+    ENTER_GAME_PAGE = 2
+    IN_GAME_PAGE = 3
+    NEW_VERSION_PAGE = 4
 
 @task(order=0)
 class StartGameTask(BaseTask):
@@ -12,6 +25,9 @@ class StartGameTask(BaseTask):
     def run(self):
         logger.info("启动游戏任务开始")
         self.launch_game()
+        delay = self.config.StartGame.launchDelay
+        logger.info(f"游戏已启动, {delay}秒后开始自动化操作")
+        self.operator.sleep(delay)
         return self.login_and_enter_game()
 
     def login_and_enter_game(self, _retry_count: int = 0):
@@ -86,101 +102,135 @@ class StartGameTask(BaseTask):
             raise ValueError("未设置游戏启动路径")
         self.operator.launch(channel=self.config.StartGame.gameChannel, path=raw_path)
 
-    def login(self):
-        if self.operator.type == OperatorType.Browser:
-            user = encryption.decryptor(self.config.StartGame.EncryptedUsername)
-            passwd = encryption.decryptor(self.config.StartGame.EncryptedPassword)
-            return self.operator.login(user, passwd, relogin=self.config.StartGame.isReLogin)
-        channel = None
-        match self.config.StartGame.gameChannel:
-            case 0:
-                channel = 'cn'
-            case 1:
-                channel = 'bl'
-            case 2:
-                channel = 'gb'
-            case _:
-                raise ValueError(f"未知的游戏渠道配置，当前配置值 {self.config.StartGame.gameChannel}")
+    def login(self) -> int:
+        """登录游戏
 
+        Returns:
+            int: -1 登录失败，1 登录成功，2 欢迎界面，3 已在游戏中
+        """
+        if self.operator.type == OperatorType.Browser:
+            return self._browser_login()
+        status = self._detect_login_state()
+        if status is None:  # 等待登录界面超时
+            return -1
+        if status != LoginStatus.LOGIN_PAGE:  # 不在登录界面，说明已经登录过
+            logger.info(f"登录状态 {status}")
+            if status == LoginStatus.NEW_VERSION_PAGE:
+                logger.error("游戏需要更新，请手动更新游戏后重试")
+                return -1
+            if self.config.StartGame.isReLogin and status != LoginStatus.IN_GAME_PAGE:
+                self.logout()  # 登出后走账号密码登录
+            else:
+                return status
+        return self._account_login()
+
+    def _browser_login(self) -> int:
+        """云游戏登录，由浏览器 Operator 处理"""
+        user = encryption.decryptor(self.config.StartGame.EncryptedUsername)
+        passwd = encryption.decryptor(self.config.StartGame.EncryptedPassword)
+        return self.operator.login(user, passwd, relogin=self.config.StartGame.isReLogin)
+
+    def _detect_login_state(self) -> LoginStatus | None:
+        """检测当前登录状态，遇到隐私协议界面自动点击同意并重新检测（最多 3 次）
+
+        Returns:
+            LoginStatus | None: 当前登录状态；等待登录界面超时返回 None
+        """
         login_pages = [
-                SGIMG.LOGIN_PAGE % channel,
-                SGIMG.WELCOME % channel,
                 SGIMG.SETTINGS,
                 IMG.ENTER,
                 SGIMG.NEW_VERSION]
-        result, box = self.operator.wait_any([
-            lambda: self.operator.locate_any(login_pages)[1],
-            lambda: self.operator.ocr_match("同意", from_x=0.5, from_y=0.58, to_x=0.6, to_y=0.64)],
-            timeout=60, interval=1)
+        for _ in range(3):
+            index, result = self.operator.wait_any([
+                lambda: self.operator.locate_any(login_pages),
+                lambda: self.operator.ocr_match("同意"),
+                lambda: self.operator.ocr_match_any(["登录", "欢迎"])],
+                timeout=60, interval=1)
+            match index:
+                case -1:
+                    logger.error("等待登录界面超时，请检查游戏状态")
+                    return None
+                case 0:  # 特征图片定位
+                    page_index:int = typing.cast(int, result[0])
+                    return (LoginStatus.ENTER_GAME_PAGE, LoginStatus.IN_GAME_PAGE, LoginStatus.NEW_VERSION_PAGE)[page_index]
+                case 1:  # 隐私协议界面，点击同意后重新检测
+                    self.operator.click_box(typing.cast('Box', result), after_sleep=1)
+                case 2:  # OCR 匹配到"登录"/"欢迎"
+                    ocr_index, _ = typing.cast(tuple, result)
+                    return LoginStatus.LOGIN_PAGE if ocr_index == 0 else LoginStatus.WELCOME_PAGE
+        return LoginStatus.UNKNOWN_PAGE
 
-        if result == -1:
-            logger.error("等待登录界面超时，请检查游戏状态")
-            return -1
-        if result == 1:
-            self.operator.click_box(box, after_sleep=1)
-            box.source = login_pages[0]  # 将box.source设置为登录界面，以便后续处理
-        if box.source != login_pages[0]:  # 如果不是登录界面，说明已经登录过了
-            logger.info(f"登录状态 {box.source}")
-            enable = self.config.StartGame.isReLogin
-            if box.source == SGIMG.NEW_VERSION:
-                # 游戏需要更新
-                logger.error("游戏需要更新，请手动更新游戏后重试")
-                return -1
-            if enable and box.source != IMG.ENTER:  # 是否启用退出账号
-                self.logout()  # 执行退出账号后执行下面的登录操作
-            else:
-                return login_pages.index(box.source)  # 直接返回登录状态
-
-        box = self.operator.ocr_match("其他账号")
-        self.operator.click_box(box, after_sleep=1)
-        # The global client exposes the account fields directly on this page.
-        if channel != 'gb':
-            box = self.operator.ocr_match("密码", from_x=0.4, from_y=0.67, to_x=0.6, to_y=0.75)
-            self.operator.click_box(box, after_sleep=1)
-        if self.config.StartGame.isAutoLogin:
-            user = encryption.decryptor(self.config.StartGame.EncryptedUsername)
-            passwd = encryption.decryptor(self.config.StartGame.EncryptedPassword)
-            if user == "" or passwd == "":
-                logger.error("自动登录账号或密码未设置，请检查配置中的自动登录账号和密码")
-                return -1
-            logger.info(f"登录账号：{user}")
-            boxes = self.operator.ocr_boxes(from_x=0.34, from_y=0.3, to_x=0.65, to_y=0.66)
-            if boxes is None:
-                raise RuntimeError("未检测到登录界面输入框，请检查游戏状态")
-            email_box = None
-            agree_box = None
-            login_box = None
-            for box in boxes:
-                if "邮箱" in box.source:
-                    email_box = box
-                if "登录" in box.source or "进入游戏" in box.source:
-                    login_box = box
-                if "同意" in box.source:
-                    agree_box = box
-            if email_box is None or login_box is None:
-                raise RuntimeError("未检测到登录界面输入框，请检查游戏状态")
-            self.operator.click_box(email_box, after_sleep=1)
-            self.operator.copy(user)
-            self.operator.paste()
+    def _account_login(self) -> int:
+        """进入账号密码界面完成登录，并等待欢迎界面出现"""
+        self.operator.click_box(self.operator.ocr_match("其他账号"))
+        self.operator.move_to(0.5, 0.5)  # 移动到中心位置, 防止按钮提示文本干扰
+        self.operator.sleep(1)
+        if self._game_channel() != 'gb':  # 国际服客户端此页面直接暴露账号输入框
+            self.operator.click_box(self.operator.ocr_match("密码"))
+            self.operator.move_to(0.5, 0.5)  # 移动到中心位置, 防止按钮提示文本干扰
             self.operator.sleep(1)
-            self.operator.press_key("tab")
-            self.operator.sleep(0.2)
-            self.operator.copy(passwd)
-            self.operator.paste()
-            if agree_box is not None:
-                self.operator.click_point(
-                    int(agree_box.left), int(agree_box.top),
-                    x_offset=-10, y_offset=15,
-                    after_sleep=1, tag="同意隐私政策")
-            self.operator.click_box(login_box)
+        if self.config.StartGame.isAutoLogin:
+            if not self._fill_credentials():
+                return -1
         else:
             logger.info("未启用自动登录，请手动完成登录")
-
-        if self.operator.wait_img(SGIMG.WELCOME % channel, timeout=180):
+        if self.operator.wait_ocr("欢迎", from_x=0.5, from_y=0.07, to_x=0.6, to_y=0.2, timeout=180):
             return 1
-        else:
-            logger.warning("登录后等待欢迎界面超时，请检查游戏状态")
-            return -1
+        logger.warning("登录后等待欢迎界面超时，请检查游戏状态")
+        return -1
+
+    def _fill_credentials(self) -> bool:
+        """自动填写账号密码并点击登录
+
+        Returns:
+            bool: 是否配置了账号密码并完成登录点击
+        """
+        user = encryption.decryptor(self.config.StartGame.EncryptedUsername)
+        passwd = encryption.decryptor(self.config.StartGame.EncryptedPassword)
+        if user == "" or passwd == "":
+            logger.error("自动登录账号或密码未设置，请检查配置中的自动登录账号和密码")
+            return False
+        logger.info(f"登录账号：{user[:3]}*****{user[-3:]}")
+        boxes = self.operator.ocr_boxes()
+        if boxes is None:
+            raise RuntimeError("未检测到登录界面")
+        email_box = login_box = None
+        for box in boxes:
+            if "邮箱" in box.source:
+                email_box = box
+            if "登录" in box.source or "进入游戏" in box.source:
+                login_box = box
+        if email_box is None or login_box is None:
+            raise RuntimeError("未检测到登录界面输入框，请检查游戏状态")
+        self.operator.click_box(email_box, after_sleep=1)
+        self.operator.copy(user)
+        self.operator.paste()
+        self.operator.sleep(1)
+        self.operator.press_key("tab")
+        self.operator.sleep(0.2)
+        self.operator.copy(passwd)
+        self.operator.paste()
+        self.operator.click_box(login_box, after_sleep=1)
+        boxes = self.operator.ocr_boxes()
+        if boxes is None:
+            raise RuntimeError("未检测到同意隐私政策界面，请检查游戏状态")
+        for box in boxes:
+            if box.source == "同意" or box.source == "同意并继续":
+                self.operator.click_box(box, after_sleep=1)
+                break
+        return True
+
+    def _game_channel(self) -> str:
+        """将游戏渠道配置转换为渠道标识"""
+        match self.config.StartGame.gameChannel:
+            case 0:
+                return 'cn'
+            case 1:
+                return 'bl'
+            case 2:
+                return 'gb'
+            case _:
+                raise ValueError(f"未知的游戏渠道配置，当前配置值 {self.config.StartGame.gameChannel}")
 
     def select_global_server(self):
         """Select and confirm the configured global server before login."""

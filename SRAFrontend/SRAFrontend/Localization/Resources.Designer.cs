@@ -9,8 +9,8 @@
 
 namespace SRAFrontend.Localization {
     using System;
-    
-    
+
+
     /// <summary>
     ///   A strongly-typed resource class, for looking up localized strings, etc.
     /// </summary>
@@ -30,7 +30,7 @@ namespace SRAFrontend.Localization {
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
         internal Resources() {
         }
-        
+
         /// <summary>
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
@@ -44,7 +44,7 @@ namespace SRAFrontend.Localization {
                 return resourceMan;
             }
         }
-        
+
         /// <summary>
         ///   Overrides the current thread's CurrentUICulture property for all
         ///   resource lookups using this strongly typed resource class.
@@ -58,7 +58,7 @@ namespace SRAFrontend.Localization {
                 resourceCulture = value;
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to About.
         /// </summary>
@@ -555,6 +555,15 @@ namespace SRAFrontend.Localization {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Download Dir.
+        /// </summary>
+        public static string DownloadDirText {
+            get {
+                return ResourceManager.GetString("DownloadDirText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Email Notification.
         /// </summary>
         public static string EmailNotificationText {
@@ -1025,6 +1034,15 @@ namespace SRAFrontend.Localization {
         /// <summary>
         ///   Looks up a localized string similar to On.
         /// </summary>
+        public static string OnText {
+            get {
+                return ResourceManager.GetString("OnText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Open.
+        /// </summary>
         public static string OpenText {
             get {
                 return ResourceManager.GetString("OpenText", resourceCulture);
@@ -1127,6 +1145,15 @@ namespace SRAFrontend.Localization {
         public static string RegularText {
             get {
                 return ResourceManager.GetString("RegularText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reinstall the latest app.
+        /// </summary>
+        public static string ReInstallText {
+            get {
+                return ResourceManager.GetString("ReInstallText", resourceCulture);
             }
         }
         
@@ -1658,15 +1685,6 @@ namespace SRAFrontend.Localization {
         public static string XxtuiSettingsText {
             get {
                 return ResourceManager.GetString("XxtuiSettingsText", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Zoom.
-        /// </summary>
-        public static string ZoomText {
-            get {
-                return ResourceManager.GetString("ZoomText", resourceCulture);
             }
         }
     }

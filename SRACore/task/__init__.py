@@ -157,6 +157,11 @@ class TaskRegistry:
     def has_id(self, task_id: str) -> bool:
         return task_id in self._by_id
 
+    def clear(self) -> None:
+        """清空所有已注册的任务（用于模块热重载后重新注册）"""
+        self._entries.clear()
+        self._by_id.clear()
+
 
 task_registry = TaskRegistry()
 

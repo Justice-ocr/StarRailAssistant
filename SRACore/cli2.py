@@ -1,6 +1,7 @@
 import argparse
 import dataclasses
 import json
+import typing
 from collections.abc import Callable
 from typing import Any
 from cmd2.parsing import Statement
@@ -17,6 +18,7 @@ from SRACore.runtime.event_listener import KeyboardListener
 from SRACore.runtime.trigger_manager import TriggerManager
 from SRACore.service.setting_service import SettingsService
 from SRACore.thread.task_process import TaskManager
+from SRACore.util import reload_package
 from SRACore.util.const import VERSION, CORE
 
 
@@ -46,17 +48,18 @@ class SRACli(cmd2.Cmd):
         # Keep Justice fork's legacy trigger controls alongside the upstream Extension system.
         self.trigger_manager = TriggerManager(settings_service.settings)
 
-        # 初始化扩展系统：动态导入扩展模块并创建运行器
-        load_extensions()
-        self.extension_config_manager = ExtensionConfigManager()
-        self.extension_runner = ExtensionRunner(
-            self.extension_config_manager, settings_service)
-
-        # 初始化键盘监听器
+        # 初始化键盘监听器（全局单实例，由 CLI 持有并注入给扩展）
         stop_hotkey = settings_service.settings.General.hotkeyStop.lower() or 'f9'
         self.event_listener = KeyboardListener()
         self.event_listener.register_key_event(stop_hotkey, self._task_stop)
         self.event_listener.start()
+
+        # 初始化扩展系统：动态导入扩展模块并创建运行器
+        load_extensions()
+        self.extension_config_manager = ExtensionConfigManager()
+        self.extension_runner = ExtensionRunner(
+            self.extension_config_manager, settings_service,
+            event_listener=self.event_listener)
 
     @staticmethod
     def _strip_command_bom(command: str) -> str:
@@ -151,10 +154,11 @@ class SRACli(cmd2.Cmd):
 
     @cmd2.as_subcommand_to("task", "stop", _build_task_stop_parser, help=Resource.stop_description)
     def _task_stop(self, _) -> None:
-        if self.task_manager.is_thread_running():
-            self.task_manager.stop_thread()
-        else:
-            logger.info(Resource.cli_task_notRunning)
+        # 任务与扩展共用全局工作线程，需同时向两个 Runner 请求停止：
+        # 否则 stop_thread 的 join 会因目标线程不响应本 Runner 的事件而空等超时
+        self.task_manager.request_stop()
+        self.extension_runner.request_stop()
+        self.task_manager.stop_thread()
 
     @staticmethod
     def _build_task_status_parser() -> cmd2.Cmd2ArgumentParser:
@@ -213,6 +217,43 @@ class SRACli(cmd2.Cmd):
         for item in items:
             self.poutput(f"  {item['order']}: {item['id']} ({item['class']})"
                          f"  {item['doc'] or 'No description'}")
+
+    @staticmethod
+    def _build_task_reload_parser() -> cmd2.Cmd2ArgumentParser:
+        return SRACli.cmd2argumentparser_factory(description="重新导入任务模块，实现热重载")
+
+    @cmd2.as_subcommand_to("task", "reload", _build_task_reload_parser, help="重新导入任务模块，实现热重载")
+    def _task_reload(self, _: argparse.Namespace) -> None:
+        from pathlib import Path
+
+        from SRACore.task import task_registry
+
+        if self.task_manager.is_thread_running():
+            self.err("任务线程正在运行中，无法执行重载操作")
+            return
+
+        package_dir = Path("tasks")
+        if not package_dir.is_dir():
+            self.err(f"任务目录不存在: {package_dir.resolve()}")
+            return
+
+        before = set(task_registry.get_ids())
+        task_registry.clear()
+
+        reload_package("tasks")
+
+        after = set(task_registry.get_ids())
+        if not after:
+            self.err("重载完成，但没有已注册的任务")
+            return
+        added = sorted(after - before)
+        removed = sorted(before - after)
+        message = f"已重载任务，当前共 {len(after)} 个任务"
+        if added:
+            message += f"，新增: {', '.join(added)}"
+        if removed:
+            message += f"，移除: {', '.join(removed)}"
+        self.ok(message, {"tasks": task_registry.get_ids()})
 
     @staticmethod
     def _build_run_parser() -> cmd2.Cmd2ArgumentParser:
@@ -408,21 +449,44 @@ class SRACli(cmd2.Cmd):
 
     @staticmethod
     def _build_extension_reload_parser() -> cmd2.Cmd2ArgumentParser:
-        return cmd2.Cmd2ArgumentParser(description="重新扫描并导入扩展模块")
+        return SRACli.cmd2argumentparser_factory(description="重新导入扩展模块（含已导入模块的热重载）")
 
-    @cmd2.as_subcommand_to("extension", "reload", _build_extension_reload_parser, help="重新扫描并导入扩展模块")
+    @cmd2.as_subcommand_to("extension", "reload", _build_extension_reload_parser,
+                           help="重新导入扩展模块（含已导入模块的热重载）")
     def _extension_reload(self, _: argparse.Namespace) -> None:
-        from SRACore.extension import extension_registry
+        from SRACore.extension import extension_registry, reload_extensions
 
-        before = set(extension_registry.get_ids())
-        load_extensions()
-        after = set(extension_registry.get_ids())
-        added = after - before
+        if self.extension_runner.is_thread_running():
+            self.err("扩展线程正在运行中，无法执行重载操作")
+            return
+
+        # 运行中的后台扩展持有旧模块的类实例：先停止，重载后按新类重启
+        active_background = [ext_id for ext_id in self.extension_runner.extensions
+                             if extension_registry.is_background(ext_id)]
+        for ext_id in active_background:
+            self.extension_runner.stop_extension(ext_id)
+
+        before, after = reload_extensions()
+        self.extension_config_manager.refresh()
+
+        restarted = [ext_id for ext_id in active_background
+                     if extension_registry.has_id(ext_id)
+                     and self.extension_runner.start_extension(ext_id)]
+
+        if not after:
+            self.err("重载完成，但没有已注册的扩展")
+            return
+        added = sorted(after - before)
+        removed = sorted(before - after)
+        updated = sorted(before & after)
+        message = f"已重载扩展，当前共 {len(after)} 个（更新 {len(updated)} 个）"
         if added:
-            self.poutput(f"新增扩展: {', '.join(added)}")
-        else:
-            self.poutput("未发现新扩展")
-        self.poutput(f"当前已注册 {len(after)} 个扩展")
+            message += f"，新增: {', '.join(added)}"
+        if removed:
+            message += f"，移除: {', '.join(removed)}"
+        if restarted:
+            message += f"，已重启后台扩展: {', '.join(restarted)}"
+        self.ok(message, {"extensions": sorted(after)})
 
     @staticmethod
     def _build_extension_stop_parser() -> cmd2.Cmd2ArgumentParser:
@@ -723,7 +787,14 @@ class SRACli(cmd2.Cmd):
     def _cleanup(self):
         """清理资源"""
         self.task_manager.stop_thread(timeout=5.0)
+        self.extension_runner.stop_thread(timeout=5.0)
         self.trigger_manager.stop_thread(timeout=5.0)
         self.event_listener.stop()
 
     # endregion
+
+    @staticmethod
+    def cmd2argumentparser_factory(**kwargs) -> cmd2.Cmd2ArgumentParser:
+        parser = cmd2.Cmd2ArgumentParser(**kwargs)
+        parser.add_argument('--json', action='store_true', help='Output JSON instead of plain text')
+        return parser

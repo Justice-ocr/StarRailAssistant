@@ -32,6 +32,7 @@ class IMG:
     ENSURE = f"{BASE}/ensure.png"
     ENSURE2 = f"{BASE}/ensure2.png"
     ENSURE3 = f"{BASE}/ensure3.png"
+    F = f"{BASE}/f.png"
     F2 = f"{BASE}/f2.png"
     F3 = f"{BASE}/f3.png"
     F4 = f"{BASE}/f4.png"

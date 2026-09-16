@@ -10,7 +10,6 @@ from SRACore.service.setting_service import SettingsService
 from SRACore.task import BaseTask, get_task_classes, task_registry
 from SRACore.task.custom_task import get_custom_tasks, is_custom_task_name, load_custom_task
 from SRACore.thread.runner import Runner
-from SRACore.util import sys_util  # NOQA
 from SRACore.util.data_persister import load_cache, load_config
 from SRACore.util.errors import ThreadStoppedError
 from SRACore.util.logger import logger
@@ -25,13 +24,17 @@ class TaskManager(Runner):
 
     def __init__(self, settings_service: SettingsService):
         super().__init__()
-        self.task_list: list[type[BaseTask]] = get_task_classes()
         self.settings_service: SettingsService = settings_service
         self._recovery = TaskRecovery(settings_service.settings)
         self._runtime_session: RuntimeSession | None = None
         self._runtime_watcher_stop = threading.Event()
         self._runtime_watcher_thread: threading.Thread | None = None
         logger.debug(f"Successfully load task: {self.task_list}")
+
+    @property
+    def task_list(self) -> list[type[BaseTask]]:
+        """实时从任务注册表获取任务类，确保热重载后运行的是最新代码。"""
+        return get_task_classes()
 
     def _start_runtime_watcher(self, session: RuntimeSession) -> None:
         self._runtime_session = session
@@ -210,11 +213,17 @@ class TaskManager(Runner):
                 break  # 所有配置执行完毕，退出重试循环
 
         logger.info("All tasks completed.")
+        image = None
+        if last_operator:
+            try:
+                image = last_operator.screenshot()
+            except Exception as exc:
+                logger.warning(f"任务结束截图不可用，继续发送通知：{exc}")
         try_send_notification(
             self.settings_service.settings.Notification,
             Resource.task_notificationTitle,
             Resource.task_notificationMessage,
-            image=last_operator.screenshot() if last_operator else None
+            image=image
         )
         return True
 

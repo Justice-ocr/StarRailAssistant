@@ -36,7 +36,8 @@ public partial class MainWindowViewModel(
         "May your path be clear",
         "May you get to where\ndreams are all\ncrystalline and sweet",
         "我们将在过去篆刻未来",
-        "铁花飞，飘逸不残灰"
+        "铁花飞，飘逸不残灰",
+        "一切正常就是异常",
     ];
 
     private static readonly List<string> GreetingsEn =
@@ -49,7 +50,8 @@ public partial class MainWindowViewModel(
         "Bon voyage",
         "May your path be clear",
         "May you get to where\ndreams are all\ncrystalline and sweet",
-        "We will mark the past with the future"
+        "We will mark the past with the future",
+        "Neverness To Everness"
     ];
 
     [ObservableProperty] private string _lightModeText =

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -29,7 +29,11 @@ public partial class ConsolePageView : UserControl
     {
         base.OnLoaded(e);
         ConsoleScrollViewer.ScrollToEnd();
-        if (DataContext is ConsolePageViewModel model) model.PropertyChanged += OnModelOnPropertyChanged;
+        if (DataContext is ConsolePageViewModel model)
+        {
+            model.TopLevelObject = TopLevel.GetTopLevel(this);
+            model.PropertyChanged += OnModelOnPropertyChanged;
+        }
     }
 
     protected override void OnUnloaded(RoutedEventArgs e)

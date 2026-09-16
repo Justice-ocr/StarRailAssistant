@@ -5,7 +5,11 @@
             <!-- Add Controls for Previewer Here -->
         </Border>
     </Design.PreviewWith>
+
     <!-- Add Styles Here -->
+    <Style Selector="Button.Icon">
+        <Setter Property="FontFamily" Value="{DynamicResource Phosphor}"/>
+    </Style>
     <Style Selector="Label">
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
@@ -13,5 +17,8 @@
         <Setter Property="FontFamily" Value="{DynamicResource Phosphor}" />
         <Setter Property="HorizontalAlignment" Value="Center"></Setter>
         <Setter Property="FontSize" Value="20"></Setter>
+    </Style>
+    <Style Selector="TextBlock.Icon">
+        <Setter Property="FontFamily" Value="{DynamicResource Phosphor}" />
     </Style>
 </Styles>

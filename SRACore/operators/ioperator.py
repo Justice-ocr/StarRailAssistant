@@ -17,7 +17,7 @@ from SRACore.operators.model import Box, WindowContext
 from SRACore.util.const import LogsOCRDir
 from SRACore.util.errors import ThreadStoppedError
 
-type Waitable = Callable[[], Box | None]
+type Waitable = Callable[[], Box | None | tuple[int, Box | None]]
 
 
 class IOperator(ABC):
@@ -57,7 +57,7 @@ class IOperator(ABC):
         """终止目标应用程序"""
         ...
 
-    def login(self, account, password, relogin: bool = False):
+    def login(self, account, password, relogin: bool = False) -> int:
         ...
 
     @abstractmethod
@@ -276,7 +276,7 @@ class IOperator(ABC):
                           zip(rapid_output.boxes, rapid_output.txts, rapid_output.scores) if # pyright: ignore[reportArgumentType]
                           score > ocr_confidence]
             if self.is_save_ocr_image:
-                screenshot.save(LogsOCRDir / f"{int(time.time())}.png")
+                screenshot.save(LogsOCRDir / f"{time.time_ns()}.png")
             if trace:
                 logger.debug(f"OCR Result: {result}")
             return result
@@ -598,7 +598,7 @@ class IOperator(ABC):
             return []
 
     @staticmethod
-    def wait_any(conditions: list[Waitable], timeout: int = 10, interval: float = 0.5) -> tuple[int, Box | None]:
+    def wait_any(conditions: list[Waitable], timeout: int = 10, interval: float = 0.5) -> tuple[int, Box | None | tuple[int, Box | None]]:
         """等待任意条件满足
 
         Args:
@@ -606,14 +606,18 @@ class IOperator(ABC):
             timeout (int, optional): 超时时间，单位秒。默认值为10秒
             interval (float, optional): 检查间隔时间，单位秒。默认值为0.5秒
         Returns:
-            tuple[int, Box | None]: 满足条件的索引和Box，如果超时未满足任何条件则返回-1和None
+            tuple[int, Box | None | tuple[int, Box | None]]: 满足条件的索引和Box，如果超时未满足任何条件则返回-1和None
         """
         start_time = time.time()
         while time.time() - start_time < timeout:
             for index, condition in enumerate(conditions):
-                box = condition()
-                if box is not None:
-                    return index, box
+                result = condition()
+                if isinstance(result, tuple):
+                    if result[0] != -1:
+                        return index, result
+                    continue  # 元组结果为 (-1, ...) 表示未找到，继续检查下一个条件
+                if result is not None:
+                    return index, result
             time.sleep(interval)
         logger.debug(f"Timeout: wait_any conditions -> NotFound in {timeout} seconds")
         return -1, None
@@ -771,7 +775,7 @@ class IOperator(ABC):
         return True
 
     @staticmethod
-    def do_while(action: Callable[[], Any], condition: Callable[[], bool], interval: float = 0.1,
+    def do_while(action: Callable[[], Any], condition: Callable[[], bool], interval: float = 0.5,
                  max_iterations: int = 50) -> bool:
         """在满足条件时重复执行操作。
 
@@ -792,3 +796,6 @@ class IOperator(ABC):
             time.sleep(interval)
             iterations += 1
         return iterations != max_iterations
+
+    def active_window(self):
+        pass

@@ -7,7 +7,7 @@ namespace SRAFrontend.Models;
 
 public class AppSettings
 {
-    public const string Version = "2.21.0"; // 应用版本号
+    public const string Version = "2.22.0"; // 应用版本号
 
     [JsonPropertyName("general")] public GeneralSettings General { get; init; } = new();
 
@@ -367,6 +367,11 @@ public partial class UpdateSettings : ObservableObject
     [property: JsonPropertyName("updateChannel")]
     [property: Description("更新频道，0=Stable, 1=Beta")]
     private int _updateChannel;
+
+    [ObservableProperty]
+    [property: JsonPropertyName("downloadPath")]
+    [property: Description("更新安装包的下载保存目录，留空则使用系统临时目录下的 SRA 文件夹")]
+    private string _downloadPath = "";
 
     [JsonPropertyName("mirrorChyanCdk")]
     [Description("Mirror Chyan 下载渠道的授权码，敏感信息将被加密存储")]
